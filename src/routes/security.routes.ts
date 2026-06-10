@@ -1,69 +1,50 @@
-import express, { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import * as securityController from '../controllers/security.controller';
 import { authMiddleware, roleMiddleware } from '../middlewares/auth.middleware';
 import { generateCSRFToken } from '../middlewares/csrf.middleware';
 import { validateRequest } from '../middlewares/validate.middleware';
 import { z } from 'zod';
 
-const router: Router = express.Router();
+const router = Router();
 
-// Schema for clear failed attempts
+const h = (fn: any): RequestHandler => fn;
+
 const clearFailedAttemptsSchema = z.object({
   email: z.string().email('Invalid email address'),
 });
 
-/**
- * GET /security/csrf-token
- * Get CSRF token (public)
- */
 router.get(
   '/csrf-token',
-  generateCSRFToken as any,
-  securityController.getCSRFToken as any
+  h(generateCSRFToken),
+  h(securityController.getCSRFToken)
 );
 
-/**
- * GET /security/login-history
- * Get login history (authenticated)
- */
 router.get(
   '/login-history',
-  authMiddleware as any,
-  securityController.getLoginHistory as any
+  h(authMiddleware),
+  h(securityController.getLoginHistory)
 );
 
-/**
- * GET /security/suspicious-activity
- * Get suspicious activity for IP (admin only)
- */
 router.get(
   '/suspicious-activity',
-  authMiddleware as any,
-  roleMiddleware(['admin']) as any,
-  securityController.getSuspiciousActivity as any
+  h(authMiddleware),
+  h(roleMiddleware(['admin'])),
+  h(securityController.getSuspiciousActivity)
 );
 
-/**
- * POST /security/clear-failed-attempts
- * Clear failed login attempts (admin only)
- */
 router.post(
   '/clear-failed-attempts',
-  authMiddleware as any,
-  roleMiddleware(['admin']) as any,
-  validateRequest(clearFailedAttemptsSchema),
-  securityController.clearFailedAttempts as any
+  h(authMiddleware),
+  h(roleMiddleware(['admin'])),
+  h(validateRequest(clearFailedAttemptsSchema)),
+  h(securityController.clearFailedAttempts)
 );
 
-/**
- * GET /security/audit-logs
- * Get audit logs (admin only)
- */
 router.get(
   '/audit-logs',
-  authMiddleware as any,
-  roleMiddleware(['admin']) as any,
-  securityController.getAuditLogs as any
+  h(authMiddleware),
+  h(roleMiddleware(['admin'])),
+  h(securityController.getAuditLogs)
 );
 
 export default router;

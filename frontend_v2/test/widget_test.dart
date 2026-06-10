@@ -11,7 +11,11 @@ void main() {
       ),
     );
 
-    // Verify that the greeting is rendered
-    expect(find.text('Good Morning, Alex.'), findsOneWidget);
+    // Verify that the splash screen text is rendered initially
+    expect(find.text('YOUR PERSONAL HEALTH INSIGHTS'), findsOneWidget);
+
+    // Allow splash timer to complete and trigger redirect
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
   });
 }

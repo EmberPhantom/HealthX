@@ -169,123 +169,19 @@ export const logout = catchAsync(async (req: AuthRequest, res: Response) => {
     statusCode: 200,
     status: 'success',
     message: 'Logout successful',
+    data: null,
   });
 });
 
 /**
- * GET /auth/me
- * Get current authenticated user profile
+ * GET /auth/me — delegates to user.controller.getProfile
+ * PUT /auth/me — delegates to user.controller.updateProfile
+ * POST /auth/me/upload-picture — delegates to user.controller.uploadProfilePicture
+ *
+ * These are re-exported from user.controller to maintain backward compatibility
+ * with Flutter clients that call /auth/me paths.
  */
-export const getCurrentUser = catchAsync(async (req: AuthRequest, res: Response) => {
-  if (!req.user) {
-    throw new AppError('User not authenticated', 401);
-  }
-
-  const user = await authService.getUserById(req.user.userId);
-
-  if (!user) {
-    throw new AppError('User not found', 404);
-  }
-
-  res.status(200).json({
-    statusCode: 200,
-    status: 'success',
-    message: 'User profile retrieved successfully',
-    data: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      gender: user.gender,
-      age: user.age,
-      avatarUrl: user.avatarUrl,
-      role: user.role,
-      isEmailVerified: user.isEmailVerified,
-      onboardingComplete: user.onboardingComplete,
-      isActive: user.isActive,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    },
-  });
-});
-
-/**
- * PUT /auth/me
- * Update current user profile
- */
-export const updateProfile = catchAsync(async (req: AuthRequest, res: Response) => {
-  if (!req.user) {
-    throw new AppError('User not authenticated', 401);
-  }
-
-  const { name, phone, gender, age } = req.body;
-
-  const updatedUser = await authService.updateProfile(req.user.userId, {
-    name,
-    phone,
-    gender,
-    age,
-  });
-
-  res.status(200).json({
-    statusCode: 200,
-    status: 'success',
-    message: 'Profile updated successfully',
-    data: {
-      id: updatedUser._id,
-      name: updatedUser.name,
-      email: updatedUser.email,
-      phone: updatedUser.phone,
-      gender: updatedUser.gender,
-      age: updatedUser.age,
-      avatarUrl: updatedUser.avatarUrl,
-      role: updatedUser.role,
-      isEmailVerified: updatedUser.isEmailVerified,
-      onboardingComplete: updatedUser.onboardingComplete,
-    },
-  });
-});
-
-/**
- * POST /auth/me/upload-picture
- * Upload profile picture
- */
-export const uploadProfilePicture = catchAsync(
-  async (req: AuthRequest, res: Response) => {
-    if (!req.user) {
-      throw new AppError('User not authenticated', 401);
-    }
-
-    if (!req.file) {
-      throw new AppError('No file uploaded', 400);
-    }
-
-    // Import storage service
-    const { default: storageService } = await import('../services/storage.service');
-
-    // Save avatar
-    const avatarUrl = await storageService.saveAvatar(req.file, req.user.userId);
-
-    // Update user avatar URL in database
-    const user = await authService.updateProfile(req.user.userId, {
-      avatarUrl,
-    });
-
-    res.status(200).json({
-      statusCode: 200,
-      status: 'success',
-      message: 'Profile picture uploaded successfully',
-      data: {
-        avatarUrl,
-        user: {
-          id: user._id,
-          name: user.name,
-          avatarUrl: user.avatarUrl,
-        },
-      },
-    });
-  }
-);
+export { getProfile as getCurrentUser, updateProfile as updateCurrentUser, uploadPicture as uploadCurrentUserPicture } from './user.controller';
 
 /**
  * POST /auth/link
@@ -366,6 +262,7 @@ export const forgotPassword = catchAsync(async (req: AuthRequest, res: Response)
     statusCode: 200,
     status: 'success',
     message: 'If a user with this email exists, a password reset link has been sent.',
+    data: null,
   });
 });
 
@@ -382,5 +279,6 @@ export const resetPassword = catchAsync(async (req: AuthRequest, res: Response) 
     statusCode: 200,
     status: 'success',
     message: 'Your password has been reset successfully.',
+    data: null,
   });
 });

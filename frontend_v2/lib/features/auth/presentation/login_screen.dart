@@ -69,7 +69,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final state = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.secondary, // Off-Black background for premium contrast
+      backgroundColor: AppColors.background, // Clean light-grey background
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -80,16 +80,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 // Premium Redesigned Header Logo & Branding
                 Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      PhosphorIconsBold.activity,
-                      size: 48,
-                      color: AppColors.primary,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.asset(
+                      'assets/icon/app_icon.png',
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
@@ -100,7 +97,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: Theme.of(context).textTheme.displayLarge?.copyWith(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.tertiary,
+                          color: AppColors.textPrimary,
                           letterSpacing: 2.0,
                         ),
                   ),
@@ -110,7 +107,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Text(
                     'Precision tracking, expert diagnostics.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.neutral,
+                          color: AppColors.textSecondary,
                           fontSize: 14,
                         ),
                   ),
@@ -119,7 +116,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 // Form Container Card (Glassmorphism look)
                 CustomCard(
-                  backgroundColor: const Color(0xFF1E1E1E), // Soft dark card base
+                  backgroundColor: AppColors.cardBackground,
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -128,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Text(
                           'Sign In',
                           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                color: AppColors.tertiary,
+                                color: AppColors.textPrimary,
                                 fontSize: 20,
                               ),
                         ),
@@ -138,20 +135,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          style: const TextStyle(color: AppColors.tertiary),
+                          style: const TextStyle(color: AppColors.textPrimary),
                           decoration: InputDecoration(
                             labelText: 'Email Address',
-                            labelStyle: const TextStyle(color: AppColors.neutral),
-                            prefixIcon: Icon(PhosphorIconsRegular.envelope, color: AppColors.neutral),
+                            labelStyle: const TextStyle(color: AppColors.textSecondary),
+                            prefixIcon: Icon(PhosphorIconsRegular.envelope, color: AppColors.textSecondary),
                             filled: true,
-                            fillColor: const Color(0xFF262626),
+                            fillColor: AppColors.cardBackground,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF333333)),
+                              borderSide: const BorderSide(color: AppColors.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.primary),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                             ),
                             errorBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -159,7 +156,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             focusedErrorBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.error),
+                              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
                             ),
                           ),
                           validator: (value) {
@@ -178,17 +175,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
-                          style: const TextStyle(color: AppColors.tertiary),
+                          style: const TextStyle(color: AppColors.textPrimary),
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            labelStyle: const TextStyle(color: AppColors.neutral),
-                            prefixIcon: Icon(PhosphorIconsRegular.lock, color: AppColors.neutral),
+                            labelStyle: const TextStyle(color: AppColors.textSecondary),
+                            prefixIcon: Icon(PhosphorIconsRegular.lock, color: AppColors.textSecondary),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
                                     ? PhosphorIconsRegular.eyeClosed
                                     : PhosphorIconsRegular.eye,
-                                color: AppColors.neutral,
+                                color: AppColors.textSecondary,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -197,14 +194,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               },
                             ),
                             filled: true,
-                            fillColor: const Color(0xFF262626),
+                            fillColor: AppColors.cardBackground,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF333333)),
+                              borderSide: const BorderSide(color: AppColors.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.primary),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                             ),
                             errorBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -212,7 +209,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             focusedErrorBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.error),
+                              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
                             ),
                           ),
                           validator: (value) {
@@ -248,34 +245,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 // Divider Section
                 Row(
                   children: [
-                    const Expanded(child: Divider(color: Color(0xFF333333))),
+                    const Expanded(child: Divider(color: AppColors.border)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Text(
                         'OR CONNECT WITH',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: AppColors.neutral,
+                              color: AppColors.textSecondary,
                             ),
                       ),
                     ),
-                    const Expanded(child: Divider(color: Color(0xFF333333))),
+                    const Expanded(child: Divider(color: AppColors.border)),
                   ],
                 ),
                 const SizedBox(height: 24),
 
                 // Google Sign In Block
-                OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.tertiary,
-                  side: const BorderSide(color: Color(0xFF333333)),
-                );
-
                 SizedBox(
                   height: 48,
                   child: OutlinedButton(
                     onPressed: state.isLoading ? null : _handleGoogleLogin,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.tertiary,
-                      side: const BorderSide(color: Color(0xFF333333)),
+                      foregroundColor: AppColors.textPrimary,
+                      backgroundColor: AppColors.cardBackground,
+                      side: const BorderSide(color: AppColors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -285,7 +278,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       children: [
                         Icon(
                           PhosphorIconsBold.googleLogo,
-                          color: AppColors.primary,
+                          color: AppColors.textPrimary,
                           size: 20,
                         ),
                         const SizedBox(width: 12),
@@ -308,7 +301,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   children: [
                     const Text(
                       "Don't have an account? ",
-                      style: TextStyle(color: AppColors.neutral),
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                     GestureDetector(
                       onTap: () {
@@ -317,8 +310,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: const Text(
                         'Sign Up',
                         style: TextStyle(
-                          color: AppColors.primary,
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
                         ),
                       ),
                     ),

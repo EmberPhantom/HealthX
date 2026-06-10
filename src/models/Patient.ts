@@ -12,6 +12,10 @@ export interface IPatient extends Document {
   };
   insuranceProvider?: string;
   insurancePolicyNo?: string;
+  height?: number;
+  weight?: number;
+  isDiabetesPatient?: boolean;
+  isBpPatient?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +51,20 @@ const patientSchema = new Schema<IPatient>(
     },
     insurancePolicyNo: {
       type: String,
+    },
+    height: {
+      type: Number,
+    },
+    weight: {
+      type: Number,
+    },
+    isDiabetesPatient: {
+      type: Boolean,
+      default: false,
+    },
+    isBpPatient: {
+      type: Boolean,
+      default: false,
     },
   },
   {

@@ -1,13 +1,15 @@
-import express, { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import * as notificationController from '../controllers/notification.controller';
 
-const router: Router = express.Router();
+const router = Router();
 
-router.use(authMiddleware as any);
+const h = (fn: any): RequestHandler => fn;
 
-router.get('/', notificationController.getNotifications as any);
-router.patch('/:id/read', notificationController.markAsRead as any);
-router.delete('/:id', notificationController.deleteNotification as any);
+router.use(h(authMiddleware));
+
+router.get('/', h(notificationController.getNotifications));
+router.patch('/:id/read', h(notificationController.markAsRead));
+router.delete('/:id', h(notificationController.deleteNotification));
 
 export default router;

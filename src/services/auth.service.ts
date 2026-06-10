@@ -56,7 +56,7 @@ export class AuthService {
         password,
         phone: phone || '',
         role: 'user',
-        isEmailVerified: true, // TEMPORARY: bypass email verification code step
+        isEmailVerified: false,
       });
 
       // Create patient profile
@@ -65,6 +65,13 @@ export class AuthService {
         allergies: [],
         medications: [],
       });
+
+      // Send verification email (async — don't block signup completion)
+      onboardingService.sendVerificationEmail(
+        user._id.toString(),
+        email,
+        name
+      ).catch((err) => logger.error('Failed to send verification email:', err));
 
       // Generate tokens
       const { accessToken, refreshToken, expiresAt } = this.generateTokens(

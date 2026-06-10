@@ -149,6 +149,7 @@ export const getUserSubscriptions = catchAsync(async (req: AuthRequest, res: Res
   res.status(200).json({
     statusCode: 200,
     status: 'success',
+    message: 'Subscriptions retrieved successfully',
     data: subscriptions,
   });
 });

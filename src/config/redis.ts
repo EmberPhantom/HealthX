@@ -80,14 +80,6 @@ export const isRedisConnected = (): boolean => {
 };
 
 /**
- * Connect to Redis (backward compatible)
- */
-export const connectRedis = async (): Promise<Redis | null> => {
-  await initializeRedis();
-  return redisClient;
-};
-
-/**
  * Close Redis connection
  */
 export const closeRedis = async (): Promise<void> => {
@@ -96,13 +88,6 @@ export const closeRedis = async (): Promise<void> => {
     redisConnected = false;
     logger.info('Redis connection closed');
   }
-};
-
-/**
- * Disconnect from Redis (backward compatible)
- */
-export const disconnectRedis = async (): Promise<void> => {
-  await closeRedis();
 };
 
 export default redisClient;

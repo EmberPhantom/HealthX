@@ -1,15 +1,17 @@
-import express, { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import * as addressController from '../controllers/address.controller';
 
-const router: Router = express.Router();
+const router = Router();
 
-router.use(authMiddleware as any);
+const h = (fn: any): RequestHandler => fn;
 
-router.get('/', addressController.getAddresses as any);
-router.post('/', addressController.createAddress as any);
-router.put('/:id', addressController.updateAddress as any);
-router.delete('/:id', addressController.deleteAddress as any);
-router.patch('/:id/default', addressController.setDefaultAddress as any);
+router.use(h(authMiddleware));
+
+router.get('/', h(addressController.getAddresses));
+router.post('/', h(addressController.createAddress));
+router.put('/:id', h(addressController.updateAddress));
+router.delete('/:id', h(addressController.deleteAddress));
+router.patch('/:id/default', h(addressController.setDefaultAddress));
 
 export default router;

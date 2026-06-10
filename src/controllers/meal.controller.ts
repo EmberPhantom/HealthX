@@ -78,6 +78,7 @@ export const deleteMeal = catchAsync(async (req: AuthRequest, res: Response) => 
     statusCode: 200,
     status: 'success',
     message: 'Meal log deleted successfully',
+    data: null,
   });
 });
 

@@ -167,10 +167,10 @@ export const updatePoints = catchAsync(async (req: AuthRequest, res: Response) =
 });
 
 /**
- * GET /users/me  (also reachable as /users/profile)
+ * GET /users/me
  * Get current user profile
  */
-export const me = catchAsync(async (req: AuthRequest, res: Response) => {
+export const getProfile = catchAsync(async (req: AuthRequest, res: Response) => {
   if (!req.user) {
     throw new AppError('User not authenticated', 401);
   }
@@ -196,6 +196,7 @@ export const me = catchAsync(async (req: AuthRequest, res: Response) => {
       role: user.role,
       isEmailVerified: user.isEmailVerified,
       isActive: user.isActive,
+      onboardingComplete: user.onboardingComplete,
       favorites: user.favorites,
       wellnessGoals: user.wellnessGoals,
       appRating: user.appRating,
@@ -208,21 +209,22 @@ export const me = catchAsync(async (req: AuthRequest, res: Response) => {
 });
 
 /**
- * PUT /users/me  (also reachable as /users/profile)
+ * PUT /users/me
  * Update user profile
  */
-export const updateMe = catchAsync(async (req: AuthRequest, res: Response) => {
+export const updateProfile = catchAsync(async (req: AuthRequest, res: Response) => {
   if (!req.user) {
     throw new AppError('User not authenticated', 401);
   }
 
-  const { name, phone, gender, age } = req.body;
+  const { name, phone, gender, age, avatarUrl } = req.body;
 
   const updatedUser = await authService.updateProfile(req.user.userId, {
     name,
     phone,
     gender,
     age,
+    avatarUrl,
   });
 
   res.status(200).json({
@@ -240,6 +242,7 @@ export const updateMe = catchAsync(async (req: AuthRequest, res: Response) => {
       role: updatedUser.role,
       isEmailVerified: updatedUser.isEmailVerified,
       isActive: updatedUser.isActive,
+      onboardingComplete: updatedUser.onboardingComplete,
     },
   });
 });
@@ -313,6 +316,7 @@ export const deleteAccount = catchAsync(async (req: AuthRequest, res: Response) 
     statusCode: 200,
     status: 'success',
     message: 'Your account and all associated data have been permanently deleted.',
+    data: null,
   });
 });
 

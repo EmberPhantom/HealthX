@@ -103,7 +103,7 @@ describe('Notification Controller Tests', () => {
         .delete(`/api/v1/notifications/${notif!._id}`)
         .set('Authorization', `Bearer ${userAToken}`);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(200);
 
       const check = await Notification.findById(notif!._id);
       expect(check).toBeNull();

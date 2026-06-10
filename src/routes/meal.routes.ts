@@ -1,21 +1,23 @@
-import express, { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import * as mealController from '../controllers/meal.controller';
 import { uploadImage, handleMulterError } from '../middlewares/upload.middleware';
 
-const router: Router = express.Router();
+const router = Router();
 
-router.use(authMiddleware as any);
+const h = (fn: any): RequestHandler => fn;
 
-router.post('/identify', mealController.identifyMeal as any);
+router.use(h(authMiddleware));
+
+router.post('/identify', h(mealController.identifyMeal));
 router.post(
   '/identify-image',
-  uploadImage as any,
-  handleMulterError as any,
-  mealController.identifyFromImage as any
+  h(uploadImage),
+  h(handleMulterError),
+  h(mealController.identifyFromImage)
 );
-router.post('/log', mealController.logMeal as any);
-router.get('/', mealController.getMeals as any);
-router.delete('/:id', mealController.deleteMeal as any);
+router.post('/log', h(mealController.logMeal));
+router.get('/', h(mealController.getMeals));
+router.delete('/:id', h(mealController.deleteMeal));
 
 export default router;

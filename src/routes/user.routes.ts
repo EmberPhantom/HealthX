@@ -1,4 +1,4 @@
-import express, { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import * as userController from '../controllers/user.controller';
 import { validateRequest } from '../middlewares/validate.middleware';
 import { updateProfileSchema } from '../schemas/auth.schema';
@@ -6,61 +6,40 @@ import { authMiddleware } from '../middlewares/auth.middleware';
 import { uploadAvatar, handleMulterError } from '../middlewares/upload.middleware';
 import { sensitiveOpRateLimiter } from '../middlewares/rateLimit.middleware';
 
-// NOTE: CSRF removed from all routes — mobile JWT Bearer auth does not require CSRF protection.
+const router = Router();
 
-const router: Router = express.Router();
+const h = (fn: any): RequestHandler => fn;
 
-/**
- * GET /users/me  (also aliased as GET /users/profile for Flutter compatibility)
- */
-router.get('/me', authMiddleware as any, userController.me as any);
-router.get('/me/stats', authMiddleware as any, userController.getStats as any);
-router.get('/me/settings', authMiddleware as any, userController.getSettings as any);
-router.put('/me/settings', authMiddleware as any, userController.updateSettings as any);
-router.post('/me/favorites/toggle', authMiddleware as any, userController.toggleFavorite as any);
-router.put('/me/wellness-goals', authMiddleware as any, userController.updateWellnessGoals as any);
-router.post('/me/rating', authMiddleware as any, userController.setAppRating as any);
-router.patch('/me/points', authMiddleware as any, userController.updatePoints as any);
-router.get('/profile', authMiddleware as any, userController.me as any);
+router.get('/me', h(authMiddleware), h(userController.getProfile));
+router.get('/me/stats', h(authMiddleware), h(userController.getStats));
+router.get('/me/settings', h(authMiddleware), h(userController.getSettings));
+router.put('/me/settings', h(authMiddleware), h(userController.updateSettings));
+router.post('/me/favorites/toggle', h(authMiddleware), h(userController.toggleFavorite));
+router.put('/me/wellness-goals', h(authMiddleware), h(userController.updateWellnessGoals));
+router.post('/me/rating', h(authMiddleware), h(userController.setAppRating));
+router.patch('/me/points', h(authMiddleware), h(userController.updatePoints));
 
-/**
- * PUT /users/me  (also aliased as PUT /users/profile for Flutter compatibility)
- */
 router.put(
   '/me',
-  authMiddleware as any,
-  validateRequest(updateProfileSchema),
-  userController.updateMe as any
-);
-router.put(
-  '/profile',
-  authMiddleware as any,
-  validateRequest(updateProfileSchema),
-  userController.updateMe as any
+  h(authMiddleware),
+  h(validateRequest(updateProfileSchema)),
+  h(userController.updateProfile)
 );
 
-/**
- * POST /users/me/upload-picture
- * Multer field: 'file' (matches Flutter ApiService.uploadProfilePicture fileKey: 'file')
- */
 router.post(
   '/me/upload-picture',
-  authMiddleware as any,
-  uploadAvatar as any,
-  handleMulterError as any,
-  sensitiveOpRateLimiter as any,
-  userController.uploadPicture as any
+  h(authMiddleware),
+  h(uploadAvatar),
+  h(handleMulterError),
+  h(sensitiveOpRateLimiter),
+  h(userController.uploadPicture)
 );
 
-/**
- * DELETE /users/me
- * Delete account and all personal data (GDPR)
- */
 router.delete(
   '/me',
-  authMiddleware as any,
-  sensitiveOpRateLimiter as any,
-  userController.deleteAccount as any
+  h(authMiddleware),
+  h(sensitiveOpRateLimiter),
+  h(userController.deleteAccount)
 );
 
 export default router;

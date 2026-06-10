@@ -1,15 +1,17 @@
-import express, { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import * as orderController from '../controllers/order.controller';
 
-const router: Router = express.Router();
+const router = Router();
 
-router.use(authMiddleware as any);
+const h = (fn: any): RequestHandler => fn;
 
-router.post('/', orderController.placeOrder as any);
-router.get('/', orderController.getOrders as any);
-router.get('/:id', orderController.getOrder as any);
-router.post('/:id/cancel', orderController.cancelOrder as any);
-router.get('/:id/status', orderController.getOrderStatus as any);
+router.use(h(authMiddleware));
+
+router.post('/', h(orderController.placeOrder));
+router.get('/', h(orderController.getOrders));
+router.get('/:id', h(orderController.getOrder));
+router.post('/:id/cancel', h(orderController.cancelOrder));
+router.get('/:id/status', h(orderController.getOrderStatus));
 
 export default router;

@@ -93,6 +93,9 @@ export const updateProfileSchema = z.object({
     .min(18, 'Age must be at least 18')
     .max(120, 'Invalid age')
     .optional(),
+  avatarUrl: z
+    .string()
+    .optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

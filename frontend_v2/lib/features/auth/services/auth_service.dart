@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../../../core/models/api_response.dart';
 import '../../../core/models/auth_models.dart';
 import '../../../core/network/api_constants.dart';
@@ -261,10 +260,15 @@ class AuthService {
     String? dateOfBirth,
     String? phone,
     String? gender,
+    String? avatarUrl,
     String? medicalHistory,
     List<String>? allergies,
     String? insuranceProvider,
     String? insurancePolicyNumber,
+    double? height,
+    double? weight,
+    bool? isDiabetesPatient,
+    bool? isBpPatient,
   }) async {
     try {
       debugPrint('📋 Completing onboarding on backend');
@@ -274,10 +278,15 @@ class AuthService {
           if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
           if (phone != null) 'phone': phone,
           if (gender != null) 'gender': gender,
+          if (avatarUrl != null) 'avatarUrl': avatarUrl,
           if (medicalHistory != null) 'medicalHistory': medicalHistory,
           if (allergies != null) 'allergies': allergies,
           if (insuranceProvider != null) 'insuranceProvider': insuranceProvider,
           if (insurancePolicyNumber != null) 'insurancePolicyNumber': insurancePolicyNumber,
+          if (height != null) 'height': height,
+          if (weight != null) 'weight': weight,
+          if (isDiabetesPatient != null) 'isDiabetesPatient': isDiabetesPatient,
+          if (isBpPatient != null) 'isBpPatient': isBpPatient,
         },
       );
 
@@ -369,7 +378,7 @@ class AuthService {
     if (token == null) return null;
 
     try {
-      final profile = await getCurrentUser().timeout(const Duration(seconds: 10));
+      final profile = await getCurrentUser().timeout(const Duration(seconds: 3));
       return profile;
     } on TimeoutException catch (_) {
       debugPrint('⚠️ Restore session timed out');

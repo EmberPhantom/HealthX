@@ -137,6 +137,10 @@ class UserProfile extends Equatable {
   final bool isEmailVerified;
   final bool isActive;
   final bool onboardingComplete;
+  final double? height;
+  final double? weight;
+  final bool? isDiabetesPatient;
+  final bool? isBpPatient;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -152,6 +156,10 @@ class UserProfile extends Equatable {
     required this.isEmailVerified,
     required this.isActive,
     required this.onboardingComplete,
+    this.height,
+    this.weight,
+    this.isDiabetesPatient,
+    this.isBpPatient,
     this.createdAt,
     this.updatedAt,
   });
@@ -159,20 +167,28 @@ class UserProfile extends Equatable {
   factory UserProfile.fromJson(dynamic json) {
     if (json == null) return const UserProfile.empty();
     final map = json as Map<String, dynamic>;
+
+    final userMap = map.containsKey('user') ? map['user'] as Map<String, dynamic> : map;
+    final patientMap = map.containsKey('patient') ? map['patient'] as Map<String, dynamic> : null;
+
     return UserProfile(
-      id: map['_id'] ?? map['id'] ?? '',
-      name: map['name'] ?? '',
-      email: map['email'] ?? '',
-      phone: map['phone'] ?? '',
-      avatarUrl: map['avatarUrl'],
-      gender: map['gender'],
-      age: map['age'] is int ? map['age'] : null,
-      role: map['role'] ?? 'user',
-      isEmailVerified: map['isEmailVerified'] ?? false,
-      isActive: map['isActive'] ?? true,
-      onboardingComplete: map['onboardingComplete'] ?? false,
-      createdAt: map['createdAt'] != null ? DateTime.tryParse(map['createdAt']) : null,
-      updatedAt: map['updatedAt'] != null ? DateTime.tryParse(map['updatedAt']) : null,
+      id: userMap['_id'] ?? userMap['id'] ?? '',
+      name: userMap['name'] ?? '',
+      email: userMap['email'] ?? '',
+      phone: userMap['phone'] ?? '',
+      avatarUrl: userMap['avatarUrl'],
+      gender: userMap['gender'],
+      age: userMap['age'] is int ? userMap['age'] : null,
+      role: userMap['role'] ?? 'user',
+      isEmailVerified: userMap['isEmailVerified'] ?? false,
+      isActive: userMap['isActive'] ?? true,
+      onboardingComplete: userMap['onboardingComplete'] ?? false,
+      createdAt: userMap['createdAt'] != null ? DateTime.tryParse(userMap['createdAt']) : null,
+      updatedAt: userMap['updatedAt'] != null ? DateTime.tryParse(userMap['updatedAt']) : null,
+      height: patientMap != null ? (patientMap['height'] as num?)?.toDouble() : (map['height'] as num?)?.toDouble(),
+      weight: patientMap != null ? (patientMap['weight'] as num?)?.toDouble() : (map['weight'] as num?)?.toDouble(),
+      isDiabetesPatient: patientMap != null ? patientMap['isDiabetesPatient'] as bool? : map['isDiabetesPatient'] as bool?,
+      isBpPatient: patientMap != null ? patientMap['isBpPatient'] as bool? : map['isBpPatient'] as bool?,
     );
   }
 
@@ -188,6 +204,10 @@ class UserProfile extends Equatable {
         isEmailVerified = false,
         isActive = true,
         onboardingComplete = false,
+        height = null,
+        weight = null,
+        isDiabetesPatient = null,
+        isBpPatient = null,
         createdAt = null,
         updatedAt = null;
 
@@ -203,6 +223,10 @@ class UserProfile extends Equatable {
     'isEmailVerified': isEmailVerified,
     'isActive': isActive,
     'onboardingComplete': onboardingComplete,
+    'height': height,
+    'weight': weight,
+    'isDiabetesPatient': isDiabetesPatient,
+    'isBpPatient': isBpPatient,
   };
 
   UserProfile copyWith({
@@ -217,6 +241,10 @@ class UserProfile extends Equatable {
     bool? isEmailVerified,
     bool? isActive,
     bool? onboardingComplete,
+    double? height,
+    double? weight,
+    bool? isDiabetesPatient,
+    bool? isBpPatient,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -230,6 +258,10 @@ class UserProfile extends Equatable {
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       isActive: isActive ?? this.isActive,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
+      height: height ?? this.height,
+      weight: weight ?? this.weight,
+      isDiabetesPatient: isDiabetesPatient ?? this.isDiabetesPatient,
+      isBpPatient: isBpPatient ?? this.isBpPatient,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -238,7 +270,8 @@ class UserProfile extends Equatable {
   @override
   List<Object?> get props => [
     id, name, email, phone, avatarUrl, gender, age, role,
-    isEmailVerified, isActive, onboardingComplete
+    isEmailVerified, isActive, onboardingComplete, height, weight,
+    isDiabetesPatient, isBpPatient
   ];
 }
 

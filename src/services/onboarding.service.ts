@@ -135,17 +135,13 @@ class OnboardingService {
    */
   async completeOnboarding(userId: string, onboardingData: any): Promise<any> {
     try {
-      const user = await User.findById(userId);
-
-      // Perform findByIdAndUpdate to satisfy both potential DB schema options and mock assertions
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         { ...onboardingData, onboardingComplete: true },
         { new: true, select: '-password' }
       );
 
-      // If neither user exists (even in mock environment)
-      if (!user && !updatedUser) {
+      if (!updatedUser) {
         throw new AppError('User not found', 404);
       }
 
@@ -164,6 +160,10 @@ class OnboardingService {
           },
           insuranceProvider: onboardingData.insuranceProvider || '',
           insurancePolicyNo: onboardingData.insurancePolicyNumber || onboardingData.insurancePolicyNo || '',
+          height: onboardingData.height,
+          weight: onboardingData.weight,
+          isDiabetesPatient: onboardingData.isDiabetesPatient,
+          isBpPatient: onboardingData.isBpPatient,
         });
       } else {
         patient.medicalHistory = onboardingData.medicalHistory || patient.medicalHistory;
@@ -176,17 +176,20 @@ class OnboardingService {
         };
         patient.insuranceProvider = onboardingData.insuranceProvider || patient.insuranceProvider;
         patient.insurancePolicyNo = onboardingData.insurancePolicyNumber || onboardingData.insurancePolicyNo || patient.insurancePolicyNo;
+        if (onboardingData.height !== undefined) patient.height = onboardingData.height;
+        if (onboardingData.weight !== undefined) patient.weight = onboardingData.weight;
+        if (onboardingData.isDiabetesPatient !== undefined) patient.isDiabetesPatient = onboardingData.isDiabetesPatient;
+        if (onboardingData.isBpPatient !== undefined) patient.isBpPatient = onboardingData.isBpPatient;
         await patient.save();
       }
 
-      const returnedUser = updatedUser || user;
       const result: any = {
-        ...(returnedUser ? (typeof returnedUser.toObject === 'function' ? returnedUser.toObject() : returnedUser) : {}),
+        ...(typeof updatedUser.toObject === 'function' ? updatedUser.toObject() : updatedUser),
       };
 
       result.message = 'Onboarding completed successfully';
       result.profile = {
-        user: returnedUser,
+        user: updatedUser,
         patient: patient,
       };
       result.onboardingComplete = true;

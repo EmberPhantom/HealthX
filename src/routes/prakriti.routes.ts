@@ -1,12 +1,14 @@
-import { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import * as prakritiController from '../controllers/prakriti.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-router.use(authMiddleware as any);
+const h = (fn: any): RequestHandler => fn;
 
-router.get('/questions', prakritiController.getQuestions as any);
-router.post('/submit', prakritiController.submitAssessment as any);
+router.use(h(authMiddleware));
+
+router.get('/questions', h(prakritiController.getQuestions));
+router.post('/submit', h(prakritiController.submitAssessment));
 
 export default router;

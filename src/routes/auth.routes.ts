@@ -1,4 +1,4 @@
-import express, { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import * as authController from '../controllers/auth.controller';
 import { validateRequest } from '../middlewares/validate.middleware';
 import {
@@ -20,17 +20,19 @@ import { uploadAvatar, handleMulterError } from '../middlewares/upload.middlewar
 // via synchronizer tokens is only applicable to browser cookie-based sessions.
 // For mobile API security, we rely on: JWT Bearer tokens, rate limiting, and audit logging.
 
-const router: Router = express.Router();
+const router = Router();
+
+const h = (fn: any): RequestHandler => fn;
 
 /**
  * POST /auth/signup
  */
 router.post(
   '/signup',
-  authRateLimiter as any,
-  validateRequest(signupSchema),
-  auditLog('SIGNUP') as any,
-  authController.signup as any
+  h(authRateLimiter),
+  h(validateRequest(signupSchema)),
+  h(auditLog('SIGNUP')),
+  h(authController.signup)
 );
 
 /**
@@ -38,23 +40,22 @@ router.post(
  */
 router.post(
   '/login',
-  checkSuspiciousActivity as any,
-  authRateLimiter as any,
-  validateRequest(loginSchema),
-  trackLoginAttempt as any,
-  auditLog('LOGIN') as any,
-  authController.login as any
+  h(checkSuspiciousActivity),
+  h(authRateLimiter),
+  h(validateRequest(loginSchema)),
+  h(trackLoginAttempt),
+  h(auditLog('LOGIN')),
+  h(authController.login)
 );
 
 /**
  * POST /auth/google
- * Google OAuth — accepts idToken from Flutter (Google Sign-In SDK)
  */
 router.post(
   '/google',
-  authRateLimiter as any,
-  validateRequest(googleAuthSchema),
-  authController.googleAuth as any
+  h(authRateLimiter),
+  h(validateRequest(googleAuthSchema)),
+  h(authController.googleAuth)
 );
 
 /**
@@ -62,75 +63,69 @@ router.post(
  */
 router.post(
   '/refresh',
-  authRateLimiter as any,
-  validateRequest(refreshTokenSchema),
-  authController.refreshToken as any
+  h(authRateLimiter),
+  h(validateRequest(refreshTokenSchema)),
+  h(authController.refreshToken)
 );
 
 /**
  * POST /auth/logout
- * CSRF removed: mobile clients use JWT Bearer — no CSRF risk
  */
 router.post(
   '/logout',
-  authMiddleware as any,
-  validateRequest(refreshTokenSchema),
-  auditLog('LOGOUT') as any,
-  authController.logout as any
+  h(authMiddleware),
+  h(validateRequest(refreshTokenSchema)),
+  h(auditLog('LOGOUT')),
+  h(authController.logout)
 );
 
 /**
  * GET /auth/me
  */
-router.get('/me', authMiddleware as any, authController.getCurrentUser as any);
+router.get('/me', h(authMiddleware), h(authController.getCurrentUser));
 
 /**
  * PUT /auth/me
- * CSRF removed: mobile clients use JWT Bearer — no CSRF risk
  */
 router.put(
   '/me',
-  authMiddleware as any,
-  validateRequest(updateProfileSchema),
-  sensitiveOpRateLimiter as any,
-  auditLog('PROFILE_UPDATE') as any,
-  authController.updateProfile as any
+  h(authMiddleware),
+  h(validateRequest(updateProfileSchema)),
+  h(sensitiveOpRateLimiter),
+  h(auditLog('PROFILE_UPDATE')),
+  h(authController.updateCurrentUser)
 );
 
 /**
  * POST /auth/me/upload-picture
- * CSRF removed: mobile clients use JWT Bearer — no CSRF risk
- * Multer field name changed to 'file' to match Flutter ApiService
  */
 router.post(
   '/me/upload-picture',
-  authMiddleware as any,
-  uploadAvatar as any,
-  handleMulterError as any,
-  sensitiveOpRateLimiter as any,
-  authController.uploadProfilePicture as any
+  h(authMiddleware),
+  h(uploadAvatar),
+  h(handleMulterError),
+  h(sensitiveOpRateLimiter),
+  h(authController.uploadCurrentUserPicture)
 );
 
 /**
  * POST /auth/link
- * Link Google provider to account
  */
 router.post(
   '/link',
-  authMiddleware as any,
-  sensitiveOpRateLimiter as any,
-  authController.linkOAuthProvider as any
+  h(authMiddleware),
+  h(sensitiveOpRateLimiter),
+  h(authController.linkOAuthProvider)
 );
 
 /**
  * POST /auth/unlink
- * Unlink Google provider from account
  */
 router.post(
   '/unlink',
-  authMiddleware as any,
-  sensitiveOpRateLimiter as any,
-  authController.unlinkOAuthProvider as any
+  h(authMiddleware),
+  h(sensitiveOpRateLimiter),
+  h(authController.unlinkOAuthProvider)
 );
 
 /**
@@ -138,9 +133,9 @@ router.post(
  */
 router.post(
   '/forgot-password',
-  authRateLimiter as any,
-  validateRequest(forgotPasswordSchema),
-  authController.forgotPassword as any
+  h(authRateLimiter),
+  h(validateRequest(forgotPasswordSchema)),
+  h(authController.forgotPassword)
 );
 
 /**
@@ -148,9 +143,9 @@ router.post(
  */
 router.post(
   '/reset-password',
-  authRateLimiter as any,
-  validateRequest(resetPasswordSchema),
-  authController.resetPassword as any
+  h(authRateLimiter),
+  h(validateRequest(resetPasswordSchema)),
+  h(authController.resetPassword)
 );
 
 export default router;

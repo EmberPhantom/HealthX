@@ -1,19 +1,21 @@
-import { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import * as healthRecordController from '../controllers/healthRecord.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { uploadHealthRecord, handleMulterError } from '../middlewares/upload.middleware';
 
 const router = Router();
 
-router.use(authMiddleware as any);
+const h = (fn: any): RequestHandler => fn;
 
-router.get('/', healthRecordController.getHealthRecords as any);
+router.use(h(authMiddleware));
+
+router.get('/', h(healthRecordController.getHealthRecords));
 router.post(
   '/',
-  uploadHealthRecord as any,
-  handleMulterError as any,
-  healthRecordController.createHealthRecord as any
+  h(uploadHealthRecord),
+  h(handleMulterError),
+  h(healthRecordController.createHealthRecord)
 );
-router.delete('/:id', healthRecordController.deleteHealthRecord as any);
+router.delete('/:id', h(healthRecordController.deleteHealthRecord));
 
 export default router;

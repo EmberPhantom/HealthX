@@ -4,7 +4,6 @@ import cors from 'cors';
 import morgan from 'morgan';
 import path from 'path';
 import mongoSanitize from 'express-mongo-sanitize';
-import passport from './config/passport';
 import { config } from './config/config';
 import { securityConfig } from './config/security.config';
 import logger from './utils/logger';
@@ -82,7 +81,6 @@ app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
 }, express.static(path.join(process.cwd(), 'uploads')));
 
 // Initialize Passport
-app.use(passport.initialize());
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {

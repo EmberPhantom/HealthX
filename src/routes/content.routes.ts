@@ -1,12 +1,14 @@
-import express, { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import * as contentController from '../controllers/content.controller';
 
-const router: Router = express.Router();
+const router = Router();
 
-router.get('/categories', authMiddleware as any, contentController.getCategories as any);
-router.get('/banners', authMiddleware as any, contentController.getBanners as any);
-router.get('/meal-plans', authMiddleware as any, contentController.getMealPlans as any);
-router.get('/menu-items', authMiddleware as any, contentController.getMenuItems as any);
+const h = (fn: any): RequestHandler => fn;
+
+router.get('/categories', h(authMiddleware), h(contentController.getCategories));
+router.get('/banners', h(authMiddleware), h(contentController.getBanners));
+router.get('/meal-plans', h(authMiddleware), h(contentController.getMealPlans));
+router.get('/menu-items', h(authMiddleware), h(contentController.getMenuItems));
 
 export default router;

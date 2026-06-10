@@ -172,10 +172,6 @@ class OAuthService {
     return providers;
   }
 
-  async verifyOAuthState(stateToken: string): Promise<boolean> {
-    return typeof stateToken === 'string' && stateToken.length > 0;
-  }
-
   async getGoogleAuthUrl(state: string): Promise<string> {
     return `https://accounts.google.com/o/oauth2/v2/auth?state=${state}`;
   }

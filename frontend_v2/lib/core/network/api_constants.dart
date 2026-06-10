@@ -84,6 +84,36 @@ class UserEndpoints {
   static const String updateWellnessGoals = '/users/me/wellness-goals';
 }
 
+class TrackerEndpoints {
+  static const String water = '/trackers/water';
+  static const String sleep = '/trackers/sleep';
+  static const String steps = '/trackers/steps';
+  static const String vitals = '/trackers/vitals';
+  static const String glucose = '/trackers/glucose';
+  static const String insulin = '/trackers/insulin';
+  static const String measurements = '/trackers/measurements';
+}
+
+class DoctorEndpoints {
+  static const String getDoctors = '/doctors';
+  static String getDoctor(String id) => '/doctors/$id';
+  static String getDoctorSlots(String id) => '/doctors/$id/slots';
+}
+
+class AppointmentEndpoints {
+  static const String base = '/appointments';
+  static String getAppointment(String id) => '/appointments/$id';
+  static String cancelAppointment(String id) => '/appointments/$id';
+}
+
+class SubscriptionEndpoints {
+  static const String base = '/subscriptions';
+  static const String subscribe = '/subscriptions/subscribe';
+  static String pause(String id) => '/subscriptions/pause/$id';
+  static String cancel(String id) => '/subscriptions/cancel/$id';
+  static const String me = '/subscriptions/me';
+}
+
 class TokenConfig {
   static const String accessTokenKey = 'access_token';
   static const String refreshTokenKey = 'refresh_token';

@@ -145,6 +145,7 @@ export const getAuditLogs = catchAsync(async (req: AuthRequest, res: Response) =
   res.status(200).json({
     statusCode: 200,
     status: 'success',
+    message: 'Audit logs retrieved successfully',
     data: { total, page, limit, totalPages: Math.ceil(total / limit), logs },
   });
 });

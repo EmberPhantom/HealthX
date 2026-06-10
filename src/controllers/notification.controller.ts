@@ -68,9 +68,10 @@ export const deleteNotification = catchAsync(async (req: AuthRequest, res: Respo
     throw new AppError('Notification not found', 404);
   }
 
-  res.status(204).json({
-    statusCode: 204,
+  res.status(200).json({
+    statusCode: 200,
     status: 'success',
+    message: 'Notification deleted successfully',
     data: null,
   });
 });

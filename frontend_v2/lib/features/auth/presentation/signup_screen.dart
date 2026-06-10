@@ -75,7 +75,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final state = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.secondary, // Uniform off-black premium feel
+      backgroundColor: AppColors.background, // Uniform off-white premium feel
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -86,16 +86,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               children: [
                 // Header Activity Logo
                 Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      PhosphorIconsBold.userPlus,
-                      size: 48,
-                      color: AppColors.primary,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.asset(
+                      'assets/icon/app_icon.png',
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
@@ -106,7 +103,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     style: Theme.of(context).textTheme.displayLarge?.copyWith(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.tertiary,
+                          color: AppColors.textPrimary,
                           letterSpacing: 2.0,
                         ),
                   ),
@@ -116,7 +113,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   child: Text(
                     'Create your unified medical profile.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.neutral,
+                          color: AppColors.textSecondary,
                           fontSize: 14,
                         ),
                   ),
@@ -125,7 +122,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
                 // Main Form Card
                 CustomCard(
-                  backgroundColor: const Color(0xFF1E1E1E),
+                  backgroundColor: AppColors.cardBackground,
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -134,7 +131,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         Text(
                           'Register Account',
                           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                color: AppColors.tertiary,
+                                color: AppColors.textPrimary,
                                 fontSize: 18,
                               ),
                         ),
@@ -144,20 +141,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         TextFormField(
                           controller: _nameController,
                           keyboardType: TextInputType.name,
-                          style: const TextStyle(color: AppColors.tertiary),
+                          style: const TextStyle(color: AppColors.textPrimary),
                           decoration: InputDecoration(
                             labelText: 'Full Name',
-                            labelStyle: const TextStyle(color: AppColors.neutral),
-                            prefixIcon: Icon(PhosphorIconsRegular.user, color: AppColors.neutral),
+                            labelStyle: const TextStyle(color: AppColors.textSecondary),
+                            prefixIcon: Icon(PhosphorIconsRegular.user, color: AppColors.textSecondary),
                             filled: true,
-                            fillColor: const Color(0xFF262626),
+                            fillColor: AppColors.cardBackground,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF333333)),
+                              borderSide: const BorderSide(color: AppColors.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.primary),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                             ),
                           ),
                           validator: (value) {
@@ -176,20 +173,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          style: const TextStyle(color: AppColors.tertiary),
+                          style: const TextStyle(color: AppColors.textPrimary),
                           decoration: InputDecoration(
                             labelText: 'Email Address',
-                            labelStyle: const TextStyle(color: AppColors.neutral),
-                            prefixIcon: Icon(PhosphorIconsRegular.envelope, color: AppColors.neutral),
+                            labelStyle: const TextStyle(color: AppColors.textSecondary),
+                            prefixIcon: Icon(PhosphorIconsRegular.envelope, color: AppColors.textSecondary),
                             filled: true,
-                            fillColor: const Color(0xFF262626),
+                            fillColor: AppColors.cardBackground,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF333333)),
+                              borderSide: const BorderSide(color: AppColors.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.primary),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                             ),
                           ),
                           validator: (value) {
@@ -208,20 +205,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         TextFormField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
-                          style: const TextStyle(color: AppColors.tertiary),
+                          style: const TextStyle(color: AppColors.textPrimary),
                           decoration: InputDecoration(
                             labelText: 'Phone Number (Optional)',
-                            labelStyle: const TextStyle(color: AppColors.neutral),
-                            prefixIcon: Icon(PhosphorIconsRegular.phone, color: AppColors.neutral),
+                            labelStyle: const TextStyle(color: AppColors.textSecondary),
+                            prefixIcon: Icon(PhosphorIconsRegular.phone, color: AppColors.textSecondary),
                             filled: true,
-                            fillColor: const Color(0xFF262626),
+                            fillColor: AppColors.cardBackground,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF333333)),
+                              borderSide: const BorderSide(color: AppColors.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.primary),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                             ),
                           ),
                           validator: (value) {
@@ -239,17 +236,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
-                          style: const TextStyle(color: AppColors.tertiary),
+                          style: const TextStyle(color: AppColors.textPrimary),
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            labelStyle: const TextStyle(color: AppColors.neutral),
-                            prefixIcon: Icon(PhosphorIconsRegular.lock, color: AppColors.neutral),
+                            labelStyle: const TextStyle(color: AppColors.textSecondary),
+                            prefixIcon: Icon(PhosphorIconsRegular.lock, color: AppColors.textSecondary),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
                                     ? PhosphorIconsRegular.eyeClosed
                                     : PhosphorIconsRegular.eye,
-                                color: AppColors.neutral,
+                                color: AppColors.textSecondary,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -258,14 +255,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               },
                             ),
                             filled: true,
-                            fillColor: const Color(0xFF262626),
+                            fillColor: AppColors.cardBackground,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF333333)),
+                              borderSide: const BorderSide(color: AppColors.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.primary),
+                              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                             ),
                           ),
                           validator: (value) {
@@ -301,17 +298,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 // Separator
                 Row(
                   children: [
-                    const Expanded(child: Divider(color: Color(0xFF333333))),
+                    const Expanded(child: Divider(color: AppColors.border)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Text(
                         'OR SIGN UP WITH',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: AppColors.neutral,
+                              color: AppColors.textSecondary,
                             ),
                       ),
                     ),
-                    const Expanded(child: Divider(color: Color(0xFF333333))),
+                    const Expanded(child: Divider(color: AppColors.border)),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -322,8 +319,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   child: OutlinedButton(
                     onPressed: state.isLoading ? null : _handleGoogleSignup,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.tertiary,
-                      side: const BorderSide(color: Color(0xFF333333)),
+                      foregroundColor: AppColors.textPrimary,
+                      backgroundColor: AppColors.cardBackground,
+                      side: const BorderSide(color: AppColors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -333,7 +331,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       children: [
                         Icon(
                           PhosphorIconsBold.googleLogo,
-                          color: AppColors.primary,
+                          color: AppColors.textPrimary,
                           size: 20,
                         ),
                         const SizedBox(width: 12),
@@ -356,7 +354,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   children: [
                     const Text(
                       'Already have an account? ',
-                      style: TextStyle(color: AppColors.neutral),
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                     GestureDetector(
                       onTap: () {
@@ -365,8 +363,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       child: const Text(
                         'Log In',
                         style: TextStyle(
-                          color: AppColors.primary,
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
                         ),
                       ),
                     ),

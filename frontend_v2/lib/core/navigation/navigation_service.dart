@@ -8,6 +8,8 @@ import '../../features/shop/presentation/shop_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/signup_screen.dart';
 import '../../features/auth/presentation/profile_completion_screen.dart';
+import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../shared/widgets/navigation_shell.dart';
 
@@ -16,17 +18,29 @@ final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(d
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final showSplash = ref.watch(showSplashProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/home',
+    initialLocation: '/splash',
     redirect: (context, state) {
+      if (showSplash || authState.isLoading) {
+        return '/splash';
+      }
+
       final isAuthenticated = authState.isAuthenticated;
       final isOnboardingComplete = authState.isOnboardingComplete;
 
       final isLoggingIn = state.matchedLocation == '/login';
       final isSigningUp = state.matchedLocation == '/signup';
       final isOnboarding = state.matchedLocation == '/onboarding';
+      final isSplash = state.matchedLocation == '/splash';
+
+      if (isSplash) {
+        if (!isAuthenticated) return '/login';
+        if (!isOnboardingComplete) return '/onboarding';
+        return '/home';
+      }
 
       if (!isAuthenticated) {
         if (isLoggingIn || isSigningUp) return null;
@@ -46,6 +60,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
       ),
@@ -56,6 +74,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const ProfileCompletionScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,

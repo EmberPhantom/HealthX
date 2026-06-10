@@ -9,6 +9,7 @@ import authMiddleware from "../../middlewares/auth.middleware";
 import onboardingService from "../../services/onboarding.service";
 import emailService from "../../services/email.service";
 import { AppError } from '../../utils/AppError';
+import { errorMiddleware } from '../../middlewares/errorMiddleware';
 
 jest.mock("../../models/User");
 jest.mock("../../models/EmailVerification");
@@ -74,6 +75,7 @@ describe('Onboarding Integration Tests', () => {
     app.use(express.json());
     app.use('/auth', authRoutes);
     app.use('/onboarding', onboardingRoutes);
+    app.use(errorMiddleware);
     jest.clearAllMocks();
     (authMiddleware as any).mockRestore && (authMiddleware as any).mockRestore();
     // Re-apply default implementation to mockAuthMiddleware

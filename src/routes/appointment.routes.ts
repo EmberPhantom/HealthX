@@ -1,14 +1,16 @@
-import { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import * as appointmentController from '../controllers/appointment.controller';
 
 const router = Router();
 
-router.use(authMiddleware as any);
+const h = (fn: any): RequestHandler => fn;
 
-router.post('/', appointmentController.bookAppointment as any);
-router.get('/', appointmentController.getAppointments as any);
-router.get('/:id', appointmentController.getAppointment as any);
-router.delete('/:id', appointmentController.cancelAppointment as any); // Cancel appointment
+router.use(h(authMiddleware));
+
+router.post('/', h(appointmentController.bookAppointment));
+router.get('/', h(appointmentController.getAppointments));
+router.get('/:id', h(appointmentController.getAppointment));
+router.delete('/:id', h(appointmentController.cancelAppointment));
 
 export default router;

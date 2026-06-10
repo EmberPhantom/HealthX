@@ -1,12 +1,13 @@
-import { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import * as doctorController from '../controllers/doctor.controller';
 
 const router = Router();
 
-// Doctor search/list is public, slots require auth
-router.get('/', doctorController.getDoctors as any);
-router.get('/:id', doctorController.getDoctor as any);
-router.get('/:id/slots', authMiddleware as any, doctorController.getDoctorSlots as any);
+const h = (fn: any): RequestHandler => fn;
+
+router.get('/', h(doctorController.getDoctors));
+router.get('/:id', h(doctorController.getDoctor));
+router.get('/:id/slots', h(authMiddleware), h(doctorController.getDoctorSlots));
 
 export default router;

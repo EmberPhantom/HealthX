@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 
 class PrimaryButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Widget? icon;
   final bool isFullWidth;
   final bool isOutlined;
@@ -12,7 +13,7 @@ class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     super.key,
     required this.text,
-    required this.onPressed,
+    this.onPressed,
     this.icon,
     this.isFullWidth = true,
     this.isOutlined = false,
@@ -59,12 +60,19 @@ class PrimaryButton extends StatelessWidget {
       ],
     );
 
+    final VoidCallback? hapticOnPressed = onPressed != null
+        ? () {
+            HapticFeedback.lightImpact();
+            onPressed?.call();
+          }
+        : null;
+
     final Widget button = SizedBox(
       height: height,
       width: isFullWidth ? double.infinity : null,
       child: isOutlined
-          ? OutlinedButton(onPressed: onPressed, style: style, child: buttonChild)
-          : ElevatedButton(onPressed: onPressed, style: style, child: buttonChild),
+          ? OutlinedButton(onPressed: hapticOnPressed, style: style, child: buttonChild)
+          : ElevatedButton(onPressed: hapticOnPressed, style: style, child: buttonChild),
     );
 
     return button;

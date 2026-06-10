@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
 import '../../../core/models/auth_models.dart';
 import '../services/auth_service.dart';
 
@@ -37,11 +36,13 @@ class AuthState {
   String toString() => 'AuthState(isAuthenticated: $isAuthenticated, user: ${user?.name}, isLoading: $isLoading, error: $error)';
 }
 
-class AuthNotifier extends StateNotifier<AuthState> {
+class AuthNotifier extends Notifier<AuthState> {
   final AuthService _authService = AuthService();
 
-  AuthNotifier() : super(const AuthState()) {
-    initializeAuth();
+  @override
+  AuthState build() {
+    Future.microtask(() => initializeAuth());
+    return const AuthState();
   }
 
   Future<void> initializeAuth() async {
@@ -168,10 +169,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? dateOfBirth,
     String? phone,
     String? gender,
+    String? avatarUrl,
     String? medicalHistory,
     List<String>? allergies,
     String? insuranceProvider,
     String? insurancePolicyNumber,
+    double? height,
+    double? weight,
+    bool? isDiabetesPatient,
+    bool? isBpPatient,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -179,10 +185,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         dateOfBirth: dateOfBirth,
         phone: phone,
         gender: gender,
+        avatarUrl: avatarUrl,
         medicalHistory: medicalHistory,
         allergies: allergies,
         insuranceProvider: insuranceProvider,
         insurancePolicyNumber: insurancePolicyNumber,
+        height: height,
+        weight: weight,
+        isDiabetesPatient: isDiabetesPatient,
+        isBpPatient: isBpPatient,
       );
       state = state.copyWith(
         user: updatedProfile,
@@ -225,6 +236,4 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier();
-});
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
