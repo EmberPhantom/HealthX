@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "81373853436",
+    "project_id": "healthx-69d52",
+    "storage_bucket": "healthx-69d52.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:81373853436:android:66486ea3e86f8509d44979",
+        "android_client_info": {
+          "package_name": "com.healthxworld.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "81373853436-sqmvkt25bspuoga0koec337nscqolcn0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.healthxworld.app",
+            "certificate_hash": "ccaade50e0048492362735056a509b41f38fccd1"
+          }
+        },
+        {
+          "client_id": "81373853436-fuul65obo9rbv3h4kn48hr1d2i90hioa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-FKmAs3lx1UwoWmR4DvrvIXavFCHN4_M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "81373853436-fuul65obo9rbv3h4kn48hr1d2i90hioa.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

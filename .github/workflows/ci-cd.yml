@@ -1,0 +1,446 @@
+name: HealthX CI/CD — Backend + Flutter
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '20'
+  FLUTTER_VERSION: '3.27.4'
+
+# ═══════════════════════════════════════════════════════════════════
+#  BACKEND JOBS
+# ═══════════════════════════════════════════════════════════════════
+
+jobs:
+  # ── Backend Stage 1: Quality & Lint ──────────────────────────────
+  backend-quality:
+    name: '[Backend] Code Quality & Type Check'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx prettier --check "src/**/*.ts"
+
+  # ── Backend Stage 2: Unit Tests ──────────────────────────────────
+  backend-unit-tests:
+    name: '[Backend] Unit Tests'
+    runs-on: ubuntu-latest
+    needs: backend-quality
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm test -- --coverage --testPathPattern="unit|security"
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-jwt-secret-for-ci-only-not-production
+          JWT_REFRESH_SECRET: test-refresh-secret-for-ci-only-not-production
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          flags: backend-unit
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # ── Backend Stage 3: Integration Tests ───────────────────────────
+  backend-integration-tests:
+    name: '[Backend] Integration Tests'
+    runs-on: ubuntu-latest
+    needs: backend-quality
+    defaults:
+      run:
+        working-directory: .
+    services:
+      redis:
+        image: redis:7.2-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run integration tests
+        run: npm test -- --testPathPattern="integration"
+        env:
+          NODE_ENV: test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-jwt-secret-for-ci-only-not-production
+          JWT_REFRESH_SECRET: test-refresh-secret-for-ci-only-not-production
+
+  # ── Backend Stage 4: Security Scan ───────────────────────────────
+  backend-security-scan:
+    name: '[Backend] Security Audit'
+    runs-on: ubuntu-latest
+    needs: backend-quality
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: npm audit (fail on high/critical)
+        run: npm audit --audit-level=high
+
+      - name: Snyk vulnerability scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  # ── Backend Stage 5: Build Docker Image ──────────────────────────
+  backend-build:
+    name: '[Backend] Build & Push Docker Image'
+    runs-on: ubuntu-latest
+    needs: [backend-unit-tests, backend-integration-tests, backend-security-scan]
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,prefix=sha-
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Backend Stage 6: Container Security Scan ─────────────────────
+  backend-container-scan:
+    name: '[Backend] Container Vulnerability Scan'
+    runs-on: ubuntu-latest
+    needs: backend-build
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.backend-build.outputs.image-tag }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+# ═══════════════════════════════════════════════════════════════════
+#  FLUTTER JOBS
+# ═══════════════════════════════════════════════════════════════════
+
+  # ── Flutter Stage 1: Lint & Format ───────────────────────────────
+  flutter-quality:
+    name: '[Flutter] Code Quality & Analysis'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyse code (dart analyze)
+        run: flutter analyze --no-fatal-infos
+
+  # ── Flutter Stage 2: Unit & Widget Tests ─────────────────────────
+  flutter-tests:
+    name: '[Flutter] Unit & Widget Tests'
+    runs-on: ubuntu-latest
+    needs: flutter-quality
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests with coverage
+        run: flutter test --coverage
+
+      - name: Upload Flutter coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: frontend/coverage/lcov.info
+          flags: flutter
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # ── Flutter Stage 3: Build Android APK (Debug) ───────────────────
+  flutter-build-android-debug:
+    name: '[Flutter] Build Android Debug APK'
+    runs-on: ubuntu-latest
+    needs: [flutter-quality, flutter-tests]
+    if: github.event_name == 'pull_request'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build debug APK
+        run: flutter build apk --debug --dart-define=BASE_URL=${{ vars.STAGING_API_URL }}
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk-${{ github.sha }}
+          path: frontend/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+
+  # ── Flutter Stage 4: Build Android Release APK ───────────────────
+  flutter-build-android-release:
+    name: '[Flutter] Build Android Release APK'
+    runs-on: ubuntu-latest
+    needs: [flutter-quality, flutter-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Restore the keystore from GitHub secrets (NOT from the repo)
+      - name: Decode & write keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Write key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=upload-keystore.jks
+          EOF
+
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --dart-define=BASE_URL=${{ vars.PRODUCTION_API_URL }}
+
+      - name: Build release App Bundle (AAB)
+        run: |
+          flutter build appbundle --release \
+            --dart-define=BASE_URL=${{ vars.PRODUCTION_API_URL }}
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk-${{ github.sha }}
+          path: frontend/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      - name: Upload release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-aab-${{ github.sha }}
+          path: frontend/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+# ═══════════════════════════════════════════════════════════════════
+#  DEPLOYMENT JOBS  (run after both backend + flutter pass)
+# ═══════════════════════════════════════════════════════════════════
+
+  # ── Deploy to Staging (develop branch) ───────────────────────────
+  deploy-staging:
+    name: 'Deploy to Staging'
+    runs-on: ubuntu-latest
+    needs:
+      - backend-build
+      - backend-container-scan
+      - flutter-build-android-debug
+    if: >
+      github.ref == 'refs/heads/develop' &&
+      github.event_name == 'push' &&
+      always() &&
+      needs.backend-build.result == 'success'
+    environment:
+      name: staging
+      url: https://staging-api.healthx.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy backend to staging
+        run: |
+          echo "Deploying backend ${{ needs.backend-build.outputs.image-tag }} to staging"
+          # Add your actual deploy command here (kubectl apply, docker stack deploy, etc.)
+
+      - name: Run backend smoke tests
+        run: |
+          sleep 30
+          curl -f https://staging-api.healthx.app/health || exit 1
+
+      - name: Notify team
+        if: always()
+        run: echo "Staging deployment: ${{ job.status }}"
+
+  # ── Deploy to Production (main branch, manual approval) ──────────
+  deploy-production:
+    name: 'Deploy to Production'
+    runs-on: ubuntu-latest
+    needs:
+      - backend-build
+      - backend-container-scan
+      - flutter-build-android-release
+    if: >
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      needs.backend-build.result == 'success' &&
+      needs.flutter-build-android-release.result == 'success'
+    environment:
+      name: production
+      url: https://api.healthx.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy backend to production
+        run: |
+          echo "Deploying backend ${{ needs.backend-build.outputs.image-tag }} to production"
+          # Add your actual deploy command here
+
+      - name: Run production smoke tests
+        run: |
+          sleep 30
+          curl -f https://api.healthx.app/health || exit 1
+
+      - name: Notify team
+        if: always()
+        run: echo "Production deployment: ${{ job.status }}"

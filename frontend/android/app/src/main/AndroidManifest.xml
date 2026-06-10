@@ -1,0 +1,167 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
+
+    <!-- ✅ FIX: Remove READ_MEDIA_IMAGES added by image_picker/file_picker plugins -->
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove"/>
+
+    <!-- Step / Activity Recognition -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+
+    <!-- Foreground service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH"/>
+
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+
+    <!-- Keep running in background -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+
+    <!-- Location -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <uses-feature android:name="android.hardware.sensor.stepcounter"  android:required="false"/>
+    <uses-feature android:name="android.hardware.camera"              android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus"    android:required="false"/>
+
+    <application
+        android:label="HealthX"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:requestLegacyExternalStorage="true"
+        android:enableOnBackInvokedCallback="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"
+            android:enableOnBackInvokedCallback="true">
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme"/>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- ════════════════════════════════════════════════════════════
+             STEP COUNTER SERVICE
+             ════════════════════════════════════════════════════════════ -->
+        <service
+            android:name=".StepCountService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="health"/>
+
+        <!-- ════════════════════════════════════════════════════════════
+             BOOT RECEIVER — restarts StepCountService + sleep alarms
+             ════════════════════════════════════════════════════════════ -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- ════════════════════════════════════════════════════════════
+             SLEEP ALARM RECEIVER
+             ✅ FIX #7: exported="true" IS REQUIRED when the receiver
+             handles actions that AlarmManager fires externally.
+             exported="false" BLOCKS the alarm broadcast on some devices,
+             particularly Android 14+ with stricter intent routing.
+
+             The sleep alarms (BEDTIME_REMINDER, BEDTIME_ALERT, etc.) are
+             scheduled with explicit PendingIntent.getBroadcast() calls.
+             Even explicit intents require exported="true" on Android 14+
+             when triggered by AlarmManager (system process, not your app).
+
+             Reference: https://developer.android.com/about/versions/14/behavior-changes-14#safer-implicit-intents
+             ════════════════════════════════════════════════════════════ -->
+        <receiver
+            android:name=".SleepAlarmReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.healthxworld.app.SLEEP_BEDTIME_REMINDER"/>
+                <action android:name="com.healthxworld.app.SLEEP_BEDTIME_ALERT"/>
+                <action android:name="com.healthxworld.app.SLEEP_GOAL_COMPLETE"/>
+                <action android:name="com.healthxworld.app.SLEEP_MORNING_MOTIV"/>
+                <action android:name="com.healthxworld.app.SLEEP_SNOOZE_15"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- ════════════════════════════════════════════════════════════
+             flutter_local_notifications — water reminder receiver
+             ✅ FIX #8: This receiver is installed by the plugin but
+             must be declared with exported="false" for security.
+             It is registered automatically by the plugin — we declare
+             it here explicitly to set exact alarm compatibility flag.
+             ════════════════════════════════════════════════════════════ -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false"/>
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- Firebase -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="happybowl_channel"/>
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher"/>
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color"/>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"/>
+        </provider>
+
+        <meta-data android:name="flutterEmbedding" android:value="2"/>
+    </application>
+
+    <queries>
+        <intent><action android:name="android.media.action.IMAGE_CAPTURE"/></intent>
+        <intent><action android:name="android.intent.action.GET_CONTENT"/></intent>
+        <intent>
+            <action android:name="android.intent.action.PICK"/>
+            <data android:mimeType="image/*"/>
+        </intent>
+    </queries>
+</manifest>

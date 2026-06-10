@@ -1,0 +1,33 @@
+services:
+  # Redis Cache
+  redis:
+    image: redis:7.2-alpine
+    container_name: healthx-redis-local
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data-local:/data
+    command: redis-server --appendonly yes --requirepass redis123
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # Redis Commander (Web UI for Redis)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: healthx-redis-commander-local
+    ports:
+      - "8082:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis123
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  redis-data-local:
+    driver: local

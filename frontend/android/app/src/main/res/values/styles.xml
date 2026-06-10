@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--suppress ALL -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ✅ LaunchTheme — Works now because material:1.12.0 added in build.gradle -->
+    <style name="LaunchTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Android 12+ splash screen -->
+        <item name="android:windowSplashScreenBackground" tools:targetApi="31">@color/splash_color</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@mipmap/ic_launcher</item>
+        <!-- Older Android fallback -->
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <!-- Hide action bar -->
+        <item name="windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+    </style>
+
+    <!-- ✅ NormalTheme — Flutter content loads into this -->
+    <style name="NormalTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+        <item name="windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+    </style>
+
+</resources>
