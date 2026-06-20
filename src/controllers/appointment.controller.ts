@@ -1,10 +1,10 @@
 import { Response } from 'express';
 import Appointment from '../models/Appointment';
 import Doctor from '../models/Doctor';
-import Notification from '../models/Notification';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { AppError } from '../utils/AppError';
+import notificationDispatcher from '../services/notification.service';
 
 export const bookAppointment = catchAsync(async (req: AuthRequest, res: Response) => {
   if (!req.user) {
@@ -40,13 +40,17 @@ export const bookAppointment = catchAsync(async (req: AuthRequest, res: Response
   // Populate doctor details
   await appointment.populate('doctorId');
 
-  // Create notification
-  await Notification.create({
+  // Create notification + push
+  await notificationDispatcher.dispatch({
     userId: req.user.userId,
     title: 'Appointment Booked! 🩺',
-    message: `Your appointment with ${doctor.name} is confirmed for ${dateVal.toDateString()} at ${timeSlot}.`,
-    type: 'alert',
-    isRead: false,
+    body: `Your appointment with ${doctor.name} is confirmed for ${dateVal.toDateString()} at ${timeSlot}.`,
+    type: 'success',
+    category: 'appointments',
+    data: {
+      type: 'appointment_update',
+      appointment_id: appointment._id.toString(),
+    },
   });
 
   res.status(201).json({
@@ -108,13 +112,17 @@ export const cancelAppointment = catchAsync(async (req: AuthRequest, res: Respon
     throw new AppError('Appointment not found', 404);
   }
 
-  // Create notification
-  await Notification.create({
+  // Create notification + push
+  await notificationDispatcher.dispatch({
     userId: req.user.userId,
     title: 'Appointment Cancelled ⚠️',
-    message: `Your appointment with ${(appointment.doctorId as any).name} has been cancelled.`,
-    type: 'alert',
-    isRead: false,
+    body: `Your appointment with ${(appointment.doctorId as any).name} has been cancelled.`,
+    type: 'warning',
+    category: 'appointments',
+    data: {
+      type: 'appointment_update',
+      appointment_id: req.params.id,
+    },
   });
 
   res.status(200).json({

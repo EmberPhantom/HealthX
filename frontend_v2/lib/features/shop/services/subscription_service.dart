@@ -13,7 +13,7 @@ class SubscriptionService {
       return list.map((item) => UserSubscription.fromJson(item as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('❌ getActiveSubscriptions failed: $e');
-      return [];
+      rethrow;
     }
   }
 
@@ -27,8 +27,7 @@ class SubscriptionService {
           'planName': planName,
         },
       );
-      final rawData = response.data['data'] ?? response.data;
-      return UserSubscription.fromJson(rawData);
+      return UserSubscription.fromJson(response.data['data']);
     } catch (e) {
       debugPrint('❌ subscribeToPlan failed: $e');
       rethrow;
@@ -38,8 +37,7 @@ class SubscriptionService {
   Future<UserSubscription> cancelSubscription(String id) async {
     try {
       final response = await _dioClient.post(SubscriptionEndpoints.cancel(id));
-      final rawData = response.data['data'] ?? response.data;
-      return UserSubscription.fromJson(rawData);
+      return UserSubscription.fromJson(response.data['data']);
     } catch (e) {
       debugPrint('❌ cancelSubscription failed: $e');
       rethrow;
@@ -49,10 +47,20 @@ class SubscriptionService {
   Future<UserSubscription> pauseSubscription(String id) async {
     try {
       final response = await _dioClient.post(SubscriptionEndpoints.pause(id));
-      final rawData = response.data['data'] ?? response.data;
-      return UserSubscription.fromJson(rawData);
+      return UserSubscription.fromJson(response.data['data']);
     } catch (e) {
       debugPrint('❌ pauseSubscription failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<SubscriptionPlan>> getSubscriptionPlans() async {
+    try {
+      final response = await _dioClient.get('/content/subscription-plans');
+      final list = response.data['data'] as List? ?? [];
+      return list.map((item) => SubscriptionPlan.fromJson(item as Map<String, dynamic>)).toList();
+    } catch (e) {
+      debugPrint('❌ getSubscriptionPlans failed: $e');
       rethrow;
     }
   }

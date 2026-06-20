@@ -1,110 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import 'profile_drawer.dart';
-import '../../features/home/presentation/home_screen.dart';
-import '../../features/tracker/presentation/tracker_screen.dart';
-import '../../features/consults/presentation/consults_screen.dart';
-import '../../features/shop/presentation/shop_screen.dart';
+import '../../features/notifications/providers/notification_provider.dart';
 
-class NavigationShell extends StatefulWidget {
-  final Widget child;
+class NavigationShell extends ConsumerWidget {
+  final StatefulNavigationShell navigationShell;
 
-  const NavigationShell({super.key, required this.child});
+  const NavigationShell({
+    super.key,
+    required this.navigationShell,
+  });
 
-  @override
-  State<NavigationShell> createState() => _NavigationShellState();
-}
-
-class _NavigationShellState extends State<NavigationShell> {
-  late final PageController _pageController;
-  bool _isAnimatingToPage = false;
-  ScrollPhysics _physics = const BouncingScrollPhysics();
-
-  int _getSelectedIndex(BuildContext context) {
-    final String location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/tracker')) return 1;
-    if (location.startsWith('/consults')) return 2;
-    if (location.startsWith('/shop')) return 3;
-    return 0; // Default to /home
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize PageController with current route page index
-    _pageController = PageController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final initialPage = _getSelectedIndex(context);
-      if (_pageController.hasClients) {
-        _pageController.jumpToPage(initialPage);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant NavigationShell oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_pageController.hasClients) {
-      final selectedIndex = _getSelectedIndex(context);
-      if (_pageController.page?.round() != selectedIndex && !_isAnimatingToPage) {
-        _pageController.jumpToPage(selectedIndex);
-      }
-    }
-  }
-
-  void _onItemTapped(int index, BuildContext context) {
-    final currentSelectedIndex = _getSelectedIndex(context);
-    if (index == currentSelectedIndex) return;
-
+  void _onItemTapped(int index) {
     HapticFeedback.lightImpact();
-    setState(() {
-      _isAnimatingToPage = true;
-    });
-
-    _pageController.animateToPage(
+    navigationShell.goBranch(
       index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    ).then((_) {
-      if (mounted) {
-        setState(() {
-          _isAnimatingToPage = false;
-        });
-      }
-    });
-
-    _navigateToIndex(index, context);
-  }
-
-  void _navigateToIndex(int index, BuildContext context) {
-    switch (index) {
-      case 0:
-        context.go('/home');
-        break;
-      case 1:
-        context.go('/tracker');
-        break;
-      case 2:
-        context.go('/consults');
-        break;
-      case 3:
-        context.go('/shop');
-        break;
-    }
+      initialLocation: index == navigationShell.currentIndex,
+    );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final int selectedIndex = _getSelectedIndex(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final int selectedIndex = navigationShell.currentIndex;
 
     return Scaffold(
       drawer: const ProfileDrawer(),
@@ -146,15 +67,54 @@ class _NavigationShellState extends State<NavigationShell> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(
-              PhosphorIconsRegular.bell,
-              color: AppColors.secondary,
-              size: 26,
-            ),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              context.push('/notifications');
+          Consumer(
+            builder: (context, ref, child) {
+              final notifications = ref.watch(notificationProvider).notifications;
+              final unreadCount = notifications.where((n) => !n.isRead).length;
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      PhosphorIconsRegular.bell,
+                      color: AppColors.secondary,
+                      size: 26,
+                    ),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      context.push('/notifications');
+                    },
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppColors.error,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
           const SizedBox(width: 8),
@@ -168,48 +128,7 @@ class _NavigationShellState extends State<NavigationShell> {
           ),
         ),
       ),
-      body: Listener(
-        onPointerDown: (event) {
-          // If on Home page and dragging from the left edge (dx < 50.0)
-          if (_getSelectedIndex(context) == 0 && event.position.dx < 50.0) {
-            setState(() {
-              _physics = const NeverScrollableScrollPhysics();
-            });
-          } else {
-            if (_physics is NeverScrollableScrollPhysics) {
-              setState(() {
-                _physics = const BouncingScrollPhysics();
-              });
-            }
-          }
-        },
-        onPointerUp: (event) {
-          if (_physics is NeverScrollableScrollPhysics) {
-            setState(() {
-              _physics = const BouncingScrollPhysics();
-            });
-          }
-        },
-        child: PageView(
-          controller: _pageController,
-          physics: _physics,
-          onPageChanged: (index) {
-            if (!_isAnimatingToPage) {
-              final currentSelectedIndex = _getSelectedIndex(context);
-              if (index != currentSelectedIndex) {
-                HapticFeedback.lightImpact();
-                _navigateToIndex(index, context);
-              }
-            }
-          },
-          children: const [
-            HomeScreen(),
-            TrackerScreen(),
-            ConsultsScreen(),
-            ShopScreen(),
-          ],
-        ),
-      ),
+      body: navigationShell,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           border: Border(
@@ -218,7 +137,7 @@ class _NavigationShellState extends State<NavigationShell> {
         ),
         child: BottomNavigationBar(
           currentIndex: selectedIndex,
-          onTap: (index) => _onItemTapped(index, context),
+          onTap: _onItemTapped,
           backgroundColor: AppColors.tertiary,
           elevation: 0,
           type: BottomNavigationBarType.fixed,

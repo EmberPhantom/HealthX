@@ -1,7 +1,8 @@
 import { Response } from 'express';
-import WaterLog from '../models/WaterLog';
-import SleepLog from '../models/SleepLog';
-import StepLog from '../models/StepLog';
+import { FilterQuery } from 'mongoose';
+import WaterLog, { IWaterLog } from '../models/WaterLog';
+import SleepLog, { ISleepLog } from '../models/SleepLog';
+import StepLog, { IStepLog } from '../models/StepLog';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { AppError } from '../utils/AppError';
@@ -41,9 +42,12 @@ export const getWaterLogs = catchAsync(async (req: AuthRequest, res: Response) =
     throw new AppError('User not authenticated', 401);
   }
 
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, page, limit } = req.query;
+  const p = parseInt(page as string, 10) || 1;
+  const l = parseInt(limit as string, 10) || 20;
+  const skip = (p - 1) * l;
 
-  const query: any = { userId: req.user.userId };
+  const query: FilterQuery<IWaterLog> = { userId: req.user.userId };
 
   if (startDate || endDate) {
     query.loggedAt = {};
@@ -51,7 +55,10 @@ export const getWaterLogs = catchAsync(async (req: AuthRequest, res: Response) =
     if (endDate) query.loggedAt.$lte = new Date(endDate as string);
   }
 
-  const logs = await WaterLog.find(query).sort({ loggedAt: 1 });
+  const logs = await WaterLog.find(query)
+    .sort({ loggedAt: -1 })
+    .skip(skip)
+    .limit(l);
 
   res.status(200).json({
     statusCode: 200,
@@ -95,9 +102,15 @@ export const getSleepLogs = catchAsync(async (req: AuthRequest, res: Response) =
     throw new AppError('User not authenticated', 401);
   }
 
+  const { page, limit } = req.query;
+  const p = parseInt(page as string, 10) || 1;
+  const l = parseInt(limit as string, 10) || 30;
+  const skip = (p - 1) * l;
+
   const logs = await SleepLog.find({ userId: req.user.userId })
     .sort({ dateKey: -1 })
-    .limit(30);
+    .skip(skip)
+    .limit(l);
 
   res.status(200).json({
     statusCode: 200,
@@ -141,16 +154,23 @@ export const getStepLogs = catchAsync(async (req: AuthRequest, res: Response) =>
     throw new AppError('User not authenticated', 401);
   }
 
-  const { startDate, endDate } = req.query;
-  const query: any = { userId: req.user.userId };
+  const { startDate, endDate, page, limit } = req.query;
+  const p = parseInt(page as string, 10) || 1;
+  const l = parseInt(limit as string, 10) || 20;
+  const skip = (p - 1) * l;
+
+  const query: FilterQuery<IStepLog> = { userId: req.user.userId };
 
   if (startDate || endDate) {
     query.dateKey = {};
-    if (startDate) query.dateKey.$gte = startDate;
-    if (endDate) query.dateKey.$lte = endDate;
+    if (startDate) query.dateKey.$gte = startDate as string;
+    if (endDate) query.dateKey.$lte = endDate as string;
   }
 
-  const logs = await StepLog.find(query).sort({ dateKey: 1 });
+  const logs = await StepLog.find(query)
+    .sort({ dateKey: -1 })
+    .skip(skip)
+    .limit(l);
 
   res.status(200).json({
     statusCode: 200,

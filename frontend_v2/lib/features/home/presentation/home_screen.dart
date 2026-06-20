@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -7,9 +8,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/custom_card.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/status_badge.dart';
+import '../../../shared/utils/health_utils.dart';
 import '../providers/home_provider.dart';
 import '../../tracker/providers/tracker_provider.dart';
 import '../../../core/models/tracker_models.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../shop/providers/subscription_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -22,33 +26,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
   @override
   bool get wantKeepAlive => true;
 
-  int _calculateScore(int steps, int water, String sleepStr) {
-    int score = 60; // baseline score
-    // Add points for steps (up to 15 points)
-    score += (steps / 10000 * 15).clamp(0, 15).toInt();
-    // Add points for water (up to 15 points)
-    score += (water / 2500 * 15).clamp(0, 15).toInt();
-    // Add points for sleep duration recorded (up to 10 points)
-    if (sleepStr != '0h 0m') {
-      score += 10;
-    }
-    return score.clamp(0, 100);
-  }
-
-  String _timeAgo(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inSeconds < 60) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return DateFormat('MMM d, h:mm a').format(dt);
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final user = ref.watch(authProvider).user;
     final homeState = ref.watch(homeProvider);
     final trackerState = ref.watch(trackerProvider);
-    final score = _calculateScore(homeState.todaySteps, homeState.todayWater, homeState.sleepDuration);
+    final plansAsync = ref.watch(subscriptionPlansProvider);
+    final stepGoal = user?.dailyStepGoal ?? 8000;
+    final waterGoal = user?.dailyWaterGoalMl ?? 2500;
+    final score = calculateScore(homeState.todaySteps, homeState.todayWater, homeState.sleepDuration, stepGoal: stepGoal, waterGoal: waterGoal);
 
     final String greeting = DateTime.now().hour < 12
         ? 'Good Morning'
@@ -176,6 +163,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
                     ),
                     const SizedBox(height: 16),
 
+                    // Rewards Points Banner
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        context.push('/rewards');
+                      },
+                      child: CustomCard(
+                        backgroundColor: AppColors.secondary,
+                        child: Row(
+                          children: [
+                            const Icon(PhosphorIconsFill.trophy, color: AppColors.primary, size: 28),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'HEALTH REWARDS',
+                                    style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${ref.watch(authProvider).user?.points ?? 0} Points Available',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(PhosphorIconsRegular.caretRight, color: Colors.white70, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
                     // Health Shop Banner
                     CustomCard(
                       child: Row(
@@ -221,10 +243,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
                                         fontWeight: FontWeight.bold,
                                       ),
                                 ),
-                                Text(
-                                  'Starting from ₹499',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
+                                 plansAsync.when(
+                                   data: (plans) {
+                                     final minPrice = plans.isNotEmpty
+                                         ? plans.map((p) => p.price).reduce((value, element) => value < element ? value : element)
+                                         : 499.0;
+                                     return Text(
+                                       'Starting from ₹${minPrice.toInt()}',
+                                       style: Theme.of(context).textTheme.bodyMedium,
+                                     );
+                                   },
+                                   loading: () => Text(
+                                     'Starting from...',
+                                     style: Theme.of(context).textTheme.bodyMedium,
+                                   ),
+                                   error: (err, stack) => Text(
+                                     'Starting from ₹499',
+                                     style: Theme.of(context).textTheme.bodyMedium,
+                                   ),
+                                 ),
                               ],
                             ),
                           ),
@@ -296,7 +333,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
                                 children: [
                                   TextSpan(text: '${NumberFormat('#,###').format(homeState.todaySteps)} '),
                                   TextSpan(
-                                    text: '/ 10,000 steps',
+                                    text: '/ ${NumberFormat('#,###').format(stepGoal)} steps',
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                           fontSize: 14,
                                         ),
@@ -308,7 +345,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
-                                value: (homeState.todaySteps / 10000.0).clamp(0.0, 1.0),
+                                value: (homeState.todaySteps / stepGoal.toDouble()).clamp(0.0, 1.0),
                                 minHeight: 8,
                                 backgroundColor: Colors.grey.shade100,
                                 color: AppColors.secondary,
@@ -420,7 +457,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Goal: 2.5L',
+                                    'Goal: ${(waterGoal / 1000.0).toStringAsFixed(1)}L',
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                           fontSize: 12,
                                         ),
@@ -429,6 +466,97 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
                               ),
                             ),
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // 2x3 Health Manager Grid
+                    Text(
+                      'HEALTH MANAGER',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: AppColors.textSecondary,
+                            letterSpacing: 1.2,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.4,
+                      children: [
+                        _buildGridItem(
+                          context,
+                          'My Vitals',
+                          PhosphorIconsFill.activity,
+                          AppColors.vitalsAccent,
+                          '/health/vitals',
+                        ),
+                        _buildGridItem(
+                          context,
+                          'Blood Glucose',
+                          PhosphorIconsFill.drop,
+                          AppColors.glucoseAccent,
+                          '/tracker/glucose',
+                        ),
+                        _buildGridItem(
+                          context,
+                          'Insulin Log',
+                          PhosphorIconsFill.needle,
+                          AppColors.sleepAccent,
+                          '/health/insulin',
+                        ),
+                        _buildGridItem(
+                          context,
+                          'BMI Calculator',
+                          PhosphorIconsFill.calculator,
+                          AppColors.stepsAccent,
+                          '/health/bmi',
+                        ),
+                        _buildGridItem(
+                          context,
+                          'Measurements',
+                          PhosphorIconsFill.ruler,
+                          AppColors.waterAccent,
+                          '/health/measurements',
+                        ),
+                        _buildGridItem(
+                          context,
+                          'Claim Rewards',
+                          PhosphorIconsFill.trophy,
+                          AppColors.rewardsAccent,
+                          '/rewards',
+                        ),
+                        _buildGridItem(
+                          context,
+                          'Health Records',
+                          PhosphorIconsFill.folder,
+                          const Color(0xFF8B5CF6),
+                          '/health/records',
+                        ),
+                        _buildGridItem(
+                          context,
+                          'Prakriti Quiz',
+                          PhosphorIconsFill.leaf,
+                          const Color(0xFF059669),
+                          '/health/prakriti',
+                        ),
+                        _buildGridItem(
+                          context,
+                          'Fat Calculator',
+                          PhosphorIconsFill.scales,
+                          const Color(0xFFEC4899),
+                          '/health/fat-calculator',
+                        ),
+                        _buildGridItem(
+                          context,
+                          'Diabetic Care',
+                          PhosphorIconsFill.stethoscope,
+                          const Color(0xFFEF4444),
+                          '/health/diabetic-care',
                         ),
                       ],
                     ),
@@ -688,5 +816,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with AutomaticKeepAlive
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     );
+  }
+
+  Widget _buildGridItem(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Color color,
+    String route,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        context.push(route);
+      },
+      child: CustomCard(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _timeAgo(DateTime dt) {
+    return timeAgo(dt, showDate: false);
   }
 }

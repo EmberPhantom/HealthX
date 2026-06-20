@@ -32,6 +32,30 @@ interface AuthResponse {
   };
 }
 
+/**
+ * Parse standard JWT expiry strings (e.g. '30m', '2h', '1d', '60s') into milliseconds.
+ * Returns default of 30 minutes if format is unrecognized.
+ */
+function parseExpiryToMs(expiryStr: string): number {
+  const match = expiryStr.trim().match(/^(\d+)([smhd])$/i);
+  if (!match) {
+    const parsed = parseInt(expiryStr, 10);
+    if (!isNaN(parsed)) {
+      return parsed > 999999 ? parsed : parsed * 1000;
+    }
+    return 30 * 60 * 1000; // default 30 mins
+  }
+  const value = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  switch (unit) {
+    case 's': return value * 1000;
+    case 'm': return value * 60 * 1000;
+    case 'h': return value * 60 * 60 * 1000;
+    case 'd': return value * 24 * 60 * 60 * 1000;
+    default: return 30 * 60 * 1000;
+  }
+}
+
 export class AuthService {
   /**
    * Signup new user — also triggers verification email
@@ -279,7 +303,7 @@ export class AuthService {
     } as any);
 
     const expiresAt = new Date(
-      Date.now() + 30 * 60 * 1000 // 30 minutes from now
+      Date.now() + parseExpiryToMs(config.jwt.accessExpiry)
     ).toISOString();
 
     return { accessToken, refreshToken, expiresAt };

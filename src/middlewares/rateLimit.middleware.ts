@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppError } from '../utils/AppError';
 import securityService from '../services/security.service';
 
 interface RateLimitOptions {
@@ -118,14 +117,4 @@ export const createEndpointRateLimiter = (endpoint: string, maxRequests: number,
   });
 };
 
-/**
- * Track API usage middleware
- * Handled by morgan and logger in app.ts for generic traffic
- */
-export const trackAPIUsage = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  next();
-};
+

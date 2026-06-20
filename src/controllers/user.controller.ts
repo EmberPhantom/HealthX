@@ -357,11 +357,15 @@ export const updateSettings = catchAsync(async (req: AuthRequest, res: Response)
     throw new AppError('User not authenticated', 401);
   }
 
-  const { dailyWaterGoalMl, dailyStepGoal, reminderEnabled } = req.body;
+  const { dailyWaterGoalMl, dailyStepGoal, dailyCalorieGoal, dailyProteinGoalG, dailyCarbGoalG, dailyFatGoalG, reminderEnabled } = req.body;
 
   const updateFields: any = {};
   if (dailyWaterGoalMl !== undefined) updateFields['settings.dailyWaterGoalMl'] = dailyWaterGoalMl;
   if (dailyStepGoal !== undefined) updateFields['settings.dailyStepGoal'] = dailyStepGoal;
+  if (dailyCalorieGoal !== undefined) updateFields['settings.dailyCalorieGoal'] = dailyCalorieGoal;
+  if (dailyProteinGoalG !== undefined) updateFields['settings.dailyProteinGoalG'] = dailyProteinGoalG;
+  if (dailyCarbGoalG !== undefined) updateFields['settings.dailyCarbGoalG'] = dailyCarbGoalG;
+  if (dailyFatGoalG !== undefined) updateFields['settings.dailyFatGoalG'] = dailyFatGoalG;
   if (reminderEnabled !== undefined) updateFields['settings.reminderEnabled'] = reminderEnabled;
 
   const user = await User.findByIdAndUpdate(

@@ -67,6 +67,14 @@ export const completeOnboarding = catchAsync(async (req: AuthRequest, res: Respo
     weight,
     isDiabetesPatient,
     isBpPatient,
+    wellnessGoals,
+    dominantDosha,
+    activityLevel,
+    gender,
+    dateOfBirth,
+    phone,
+    avatarUrl,
+    age,
   } = req.body;
 
   const result = await onboardingService.completeOnboarding(req.user.userId, {
@@ -81,7 +89,29 @@ export const completeOnboarding = catchAsync(async (req: AuthRequest, res: Respo
     weight,
     isDiabetesPatient,
     isBpPatient,
+    wellnessGoals,
+    dominantDosha,
+    activityLevel,
+    gender,
+    dateOfBirth,
+    phone,
+    avatarUrl,
+    age,
   });
+
+  // Trigger Step 5 question generation asynchronously to pre-warm the AI cache/model
+  if (process.env.NODE_ENV !== 'test') {
+    const acceptLang = req.headers['accept-language'] || 'en';
+    const locale = acceptLang.split(',')[0].split('-')[0].trim() || 'en';
+    const userIdForWarmup = req.user.userId;
+    import('../services/ai-health.service').then(({ default: aiService }) => {
+      aiService.generateStep5Questions(userIdForWarmup, locale).catch((err) => {
+        import('../utils/logger').then(({ default: log }) => {
+          log.error(`[onboarding.controller] Error pre-generating Step 5 questions:`, err);
+        });
+      });
+    });
+  }
 
   res.status(200).json({
     statusCode: 200,

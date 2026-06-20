@@ -83,3 +83,6 @@ docs/archive/
 # Dynamic Uploads
 uploads/
 
+# IDE and Temp Reports
+*.iml
+analyze_output.txt

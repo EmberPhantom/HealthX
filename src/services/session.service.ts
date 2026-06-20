@@ -50,8 +50,8 @@ class SessionService {
       const key = `${this.sessionKeyPrefix}${sessionId}`;
       await cacheService.set(key, session, this.sessionTTL);
       
-      // Store in user's sessions hash
-      await cacheService.hset(`sessions:${userId}`, sessionId, session);
+      // Store in sessions hash for cleanup
+      await cacheService.hset('sessions', sessionId, session);
 
       logger.info(`Session created: ${sessionId}`);
       return session;
@@ -115,6 +115,7 @@ class SessionService {
     try {
       const key = `${this.sessionKeyPrefix}${sessionId}`;
       await cacheService.delete(key);
+      await cacheService.hdel('sessions', sessionId);
       logger.info(`Session deleted: ${sessionId}`);
     } catch (error) {
       logger.error('Session deletion error:', error);
@@ -126,8 +127,7 @@ class SessionService {
    */
   async getUserSessions(userId: string): Promise<Session[]> {
     try {
-      const userSessionsKey = `sessions:${userId}`;
-      const all = await cacheService.hgetall(userSessionsKey);
+      const all = await cacheService.hgetall('sessions');
 
       const sessions: Session[] = [];
       for (const [sessionId, sessionStr] of Object.entries(all)) {
@@ -199,6 +199,7 @@ class SessionService {
             const lastActivityTime = new Date(session.lastActivity).getTime();
             if (Date.now() - lastActivityTime > thresholdMs) {
               await cacheService.delete(`${this.sessionKeyPrefix}${sessionId}`);
+              await cacheService.hdel('sessions', sessionId);
               count++;
             }
           }

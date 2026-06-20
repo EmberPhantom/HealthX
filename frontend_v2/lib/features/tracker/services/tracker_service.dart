@@ -15,28 +15,29 @@ class TrackerService {
           if (date != null) 'date': date.toIso8601String(),
         },
       );
-      final rawData = response.data['data'] ?? response.data;
-      return WaterLog.fromJson(rawData);
+      return WaterLog.fromJson(response.data['data']);
     } catch (e) {
       debugPrint('❌ logWater failed: $e');
       rethrow;
     }
   }
 
-  Future<List<WaterLog>> getWaterLogs({DateTime? startDate, DateTime? endDate}) async {
+  Future<List<WaterLog>> getWaterLogs({DateTime? startDate, DateTime? endDate, int page = 1, int limit = 20}) async {
     try {
       final response = await _dioClient.get(
         TrackerEndpoints.water,
         queryParameters: {
           if (startDate != null) 'startDate': startDate.toIso8601String(),
           if (endDate != null) 'endDate': endDate.toIso8601String(),
+          'page': page.toString(),
+          'limit': limit.toString(),
         },
       );
       final list = response.data['data'] as List? ?? [];
       return list.map((item) => WaterLog.fromJson(item as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('❌ getWaterLogs failed: $e');
-      return [];
+      rethrow;
     }
   }
 
@@ -50,22 +51,27 @@ class TrackerService {
           'dateKey': dateKey,
         },
       );
-      final rawData = response.data['data'] ?? response.data;
-      return SleepLog.fromJson(rawData);
+      return SleepLog.fromJson(response.data['data']);
     } catch (e) {
       debugPrint('❌ logSleep failed: $e');
       rethrow;
     }
   }
 
-  Future<List<SleepLog>> getSleepLogs() async {
+  Future<List<SleepLog>> getSleepLogs({int page = 1, int limit = 30}) async {
     try {
-      final response = await _dioClient.get(TrackerEndpoints.sleep);
+      final response = await _dioClient.get(
+        TrackerEndpoints.sleep,
+        queryParameters: {
+          'page': page.toString(),
+          'limit': limit.toString(),
+        },
+      );
       final list = response.data['data'] as List? ?? [];
       return list.map((item) => SleepLog.fromJson(item as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('❌ getSleepLogs failed: $e');
-      return [];
+      rethrow;
     }
   }
 
@@ -78,32 +84,36 @@ class TrackerService {
           'dateKey': dateKey,
         },
       );
-      final rawData = response.data['data'] ?? response.data;
-      return StepLog.fromJson(rawData);
+      return StepLog.fromJson(response.data['data']);
     } catch (e) {
       debugPrint('❌ logSteps failed: $e');
       rethrow;
     }
   }
 
-  Future<List<StepLog>> getStepLogs({String? startDate, String? endDate}) async {
+  Future<List<StepLog>> getStepLogs({String? startDate, String? endDate, int page = 1, int limit = 20}) async {
     try {
       final response = await _dioClient.get(
         TrackerEndpoints.steps,
         queryParameters: {
           if (startDate != null) 'startDate': startDate,
           if (endDate != null) 'endDate': endDate,
+          'page': page.toString(),
+          'limit': limit.toString(),
         },
       );
       final list = response.data['data'] as List? ?? [];
       return list.map((item) => StepLog.fromJson(item as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('❌ getStepLogs failed: $e');
-      return [];
+      rethrow;
     }
   }
 
-  Future<GlucoseLog> logGlucose(int level, String readingType, [String? note]) async {
+  /// Returns a record with the GlucoseLog and an optional AI inline comment.
+  /// The inlineComment is non-null only for users with a complete AI health profile
+  /// that has diabetes in the conditions list.
+  Future<(GlucoseLog, String?)> logGlucose(int level, String readingType, [String? note]) async {
     try {
       final response = await _dioClient.post(
         TrackerEndpoints.glucose,
@@ -113,22 +123,39 @@ class TrackerService {
           if (note != null) 'note': note,
         },
       );
-      final rawData = response.data['data'] ?? response.data;
-      return GlucoseLog.fromJson(rawData);
+      final log = GlucoseLog.fromJson(response.data['data']);
+      final inlineComment = response.data['inlineComment'] as String?;
+      return (log, inlineComment);
     } catch (e) {
       debugPrint('❌ logGlucose failed: $e');
       rethrow;
     }
   }
 
-  Future<List<GlucoseLog>> getGlucoseLogs() async {
+  Future<List<GlucoseLog>> getGlucoseLogs({int page = 1, int limit = 20}) async {
     try {
-      final response = await _dioClient.get(TrackerEndpoints.glucose);
+      final response = await _dioClient.get(
+        TrackerEndpoints.glucose,
+        queryParameters: {
+          'page': page.toString(),
+          'limit': limit.toString(),
+        },
+      );
       final list = response.data['data'] as List? ?? [];
       return list.map((item) => GlucoseLog.fromJson(item as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('❌ getGlucoseLogs failed: $e');
-      return [];
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteGlucose(String id) async {
+    try {
+      final response = await _dioClient.delete('${TrackerEndpoints.glucose}/$id');
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('❌ deleteGlucose failed: $e');
+      rethrow;
     }
   }
 }

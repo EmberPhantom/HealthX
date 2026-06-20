@@ -75,6 +75,11 @@ export class DoctorService {
   async getDoctorById(id: string): Promise<IDoctor | null> {
     return Doctor.findById(id);
   }
+
+  async getSpecialties(): Promise<string[]> {
+    const doctors = await this.getDoctors({});
+    return Array.from(new Set(doctors.map((d) => d.specialty)));
+  }
 }
 
 export const doctorService = new DoctorService();

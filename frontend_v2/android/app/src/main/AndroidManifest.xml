@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -70,6 +72,19 @@
                 <action android:name="com.healthxworld.app.SLEEP_GOAL_COMPLETE"/>
                 <action android:name="com.healthxworld.app.SLEEP_MORNING_MOTIV"/>
                 <action android:name="com.healthxworld.app.SLEEP_SNOOZE_15"/>
+                <action android:name="com.healthxworld.app.SLEEP_NOW"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- WATER REMINDER RECEIVER -->
+        <receiver
+            android:name=".WaterReminderReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.healthxworld.app.WATER_REMINDER"/>
+                <action android:name="com.healthxworld.app.WATER_ADD_250"/>
+                <action android:name="com.healthxworld.app.WATER_ADD_500"/>
             </intent-filter>
         </receiver>
 
@@ -78,6 +93,21 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- FCM: default notification icon (monochrome white, transparent bg) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+
+        <!-- FCM: default notification accent colour -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_accent" />
+
+        <!-- FCM: default notification channel for Android O+ -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="healthx_channel" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

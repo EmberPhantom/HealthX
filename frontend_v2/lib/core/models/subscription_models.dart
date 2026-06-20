@@ -29,10 +29,10 @@ class UserSubscription extends Equatable {
       status: json['status'] ?? 'active',
       price: json['price']?.toString() ?? '0',
       startDate: json['startDate'] != null
-          ? DateTime.parse(json['startDate']).toLocal()
+          ? DateTime.tryParse(json['startDate'])?.toLocal() ?? DateTime.now()
           : DateTime.now(),
       endDate: json['endDate'] != null
-          ? DateTime.parse(json['endDate']).toLocal()
+          ? DateTime.tryParse(json['endDate'])?.toLocal() ?? DateTime.now()
           : DateTime.now(),
       billingPeriod: json['billingPeriod'] ?? 'monthly',
     );
@@ -52,3 +52,33 @@ class UserSubscription extends Equatable {
   @override
   List<Object?> get props => [id, planId, planName, status, price, startDate, endDate, billingPeriod];
 }
+
+class SubscriptionPlan extends Equatable {
+  final String planId;
+  final String planName;
+  final double price;
+  final List<String> features;
+  final bool isBestseller;
+
+  const SubscriptionPlan({
+    required this.planId,
+    required this.planName,
+    required this.price,
+    required this.features,
+    this.isBestseller = false,
+  });
+
+  factory SubscriptionPlan.fromJson(Map<String, dynamic> json) {
+    return SubscriptionPlan(
+      planId: json['planId'] ?? '',
+      planName: json['planName'] ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      features: List<String>.from(json['features'] ?? []),
+      isBestseller: json['isBestseller'] ?? false,
+    );
+  }
+
+  @override
+  List<Object?> get props => [planId, planName, price, features, isBestseller];
+}
+

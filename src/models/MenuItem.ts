@@ -25,7 +25,7 @@ const menuItemSchema = new Schema<IMenuItem>(
     calories: { type: Number, required: true },
     rating: { type: Number, default: 5.0 },
     reviewCount: { type: Number, default: 0 },
-    imageUrl: { type: String, required: true },
+    imageUrl: { type: String, default: '' },
     emoji: { type: String, default: '🥗' },
     category: { type: String, required: true, trim: true },
     type: {

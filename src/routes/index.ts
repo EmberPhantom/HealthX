@@ -14,6 +14,12 @@ import appointmentRoutes from './appointment.routes';
 import healthRecordRoutes from './healthRecord.routes';
 import prakritiRoutes from './prakriti.routes';
 import subscriptionRoutes from './subscription.routes';
+import debugRoutes from './debug.routes';
+import chatRoutes from './chat.routes';
+import prescriptionRoutes from './prescription.routes';
+import adminRoutes from './admin.routes';
+import aiHealthRoutes from './ai-health.routes';
+import { config } from '../config/config';
 
 const router = Router();
 
@@ -35,5 +41,13 @@ router.use('/appointments', appointmentRoutes);
 router.use('/health-records', healthRecordRoutes);
 router.use('/prakriti', prakritiRoutes);
 router.use('/subscriptions', subscriptionRoutes);
+router.use('/chats', chatRoutes);
+router.use('/prescriptions', prescriptionRoutes);
+router.use('/admin', adminRoutes);
+router.use('/ai-health', aiHealthRoutes);
+
+if (config.env !== 'production') {
+  router.use('/debug', debugRoutes);
+}
 
 export default router;

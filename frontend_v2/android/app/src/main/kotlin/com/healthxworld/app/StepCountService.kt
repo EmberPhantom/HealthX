@@ -28,6 +28,8 @@ class StepCountService : Service(), SensorEventListener {
     // Track last milestone & motivational notif to avoid repeated firing
     private var lastMilestoneFired: Int = -1
     private var lastMotivationalMinute: Long = -1L
+    private var isTrackingPaused: Boolean = false
+    private var manualOffset: Int = 0
 
     companion object {
         const val CHANNEL_ID         = "step_counter_channel"
@@ -56,11 +58,16 @@ class StepCountService : Service(), SensorEventListener {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         stepSensor    = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
+        isTrackingPaused = prefs.getBoolean("is_tracking_paused", false)
+        manualOffset = prefs.getInt("manual_steps_offset", 0)
+
         createNotificationChannels()
         startForeground(NOTIF_ID, buildPersistentNotification(0))
 
-        stepSensor?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        if (!isTrackingPaused) {
+            stepSensor?.let {
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
         }
 
         checkAndResetForNewDay()
@@ -88,6 +95,19 @@ class StepCountService : Service(), SensorEventListener {
                 sendAfternoonNudge()
                 scheduleAfternoonNudge() // schedule for next day
             }
+            "ACTION_PAUSE_TRACKING" -> {
+                pauseTracking()
+            }
+            "ACTION_RESUME_TRACKING" -> {
+                resumeTracking()
+            }
+            "ACTION_REFRESH_STEPS" -> {
+                refreshSteps()
+            }
+            "ACTION_ADD_STEPS" -> {
+                val amount = intent.getIntExtra("amount", 500)
+                addManualSteps(amount)
+            }
         }
         return START_STICKY
     }
@@ -96,9 +116,9 @@ class StepCountService : Service(), SensorEventListener {
         event ?: return
         val totalSinceBoot = event.values[0].toInt()
         if (sensorBaseline == -1) {
-            sensorBaseline = totalSinceBoot - savedStepsBeforeRestart
+            sensorBaseline = totalSinceBoot - savedStepsBeforeRestart + manualOffset
         }
-        val todaySteps = (totalSinceBoot - sensorBaseline).coerceAtLeast(0)
+        val todaySteps = (totalSinceBoot - sensorBaseline + manualOffset).coerceAtLeast(0)
         prefs.edit().putInt(KEY_STEPS, todaySteps).apply()
         updatePersistentNotification(todaySteps)
         checkMilestones(todaySteps)
@@ -110,6 +130,46 @@ class StepCountService : Service(), SensorEventListener {
     override fun onDestroy() {
         sensorManager.unregisterListener(this)
         super.onDestroy()
+    }
+
+    private fun pauseTracking() {
+        if (!isTrackingPaused) {
+            isTrackingPaused = true
+            sensorManager.unregisterListener(this)
+            prefs.edit().putBoolean("is_tracking_paused", true).apply()
+            updatePersistentNotification(prefs.getInt(KEY_STEPS, 0))
+        }
+    }
+
+    private fun resumeTracking() {
+        if (isTrackingPaused) {
+            isTrackingPaused = false
+            prefs.edit().putBoolean("is_tracking_paused", false).apply()
+            stepSensor?.let {
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+            // Force sensor baseline recalc
+            sensorBaseline = -1
+            savedStepsBeforeRestart = prefs.getInt(KEY_STEPS, 0)
+            updatePersistentNotification(prefs.getInt(KEY_STEPS, 0))
+        }
+    }
+
+    private fun refreshSteps() {
+        val steps = prefs.getInt(KEY_STEPS, 0)
+        updatePersistentNotification(steps)
+    }
+
+    private fun addManualSteps(amount: Int) {
+        manualOffset += amount
+        prefs.edit().putInt("manual_steps_offset", manualOffset).apply()
+
+        val currentSteps = prefs.getInt(KEY_STEPS, 0)
+        val newSteps = currentSteps + amount
+        prefs.edit().putInt(KEY_STEPS, newSteps).apply()
+
+        updatePersistentNotification(newSteps)
+        checkMilestones(newSteps)
     }
 
     // ─── Check & fire milestone notifications ────────────────────────────────
@@ -306,34 +366,86 @@ class StepCountService : Service(), SensorEventListener {
     // ─── Persistent foreground notification ───────────────────────────────────
     private fun buildPersistentNotification(steps: Int): Notification {
         val goal       = getGoal()
-        val percent    = ((steps.toFloat() / goal.coerceAtLeast(1)) * 100).toInt().coerceAtMost(100)
         val remaining  = (goal - steps).coerceAtLeast(0)
+        val percent    = ((steps.toFloat() / goal.coerceAtLeast(1)) * 100).toInt().coerceAtMost(100)
         val intent     = packageManager.getLaunchIntentForPackage(packageName)
         val pi         = PendingIntent.getActivity(
             this, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val (title, body) = if (steps >= goal) {
-            Pair("🏆 Goal Complete!", "You walked ${formatSteps(steps)} steps today — amazing work! 🎉")
+        val pauseResumeIntent = Intent(this, StepCountService::class.java).apply {
+            action = if (isTrackingPaused) "ACTION_RESUME_TRACKING" else "ACTION_PAUSE_TRACKING"
+        }
+        val pauseResumePendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(
+                this, 101, pauseResumeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
         } else {
-            val progressBar = buildProgressBar(percent)
-            Pair(
-                "👟 ${formatSteps(steps)} / ${formatSteps(goal)} steps",
-                "$progressBar $percent%  •  ${formatSteps(remaining)} left"
+            PendingIntent.getService(
+                this, 101, pauseResumeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
+        val pauseResumeTitle = if (isTrackingPaused) "▶ Resume" else "⏸ Pause"
+
+        val addStepsIntent = Intent(this, StepCountService::class.java).apply {
+            action = "ACTION_ADD_STEPS"
+            putExtra("amount", 500)
+        }
+        val addStepsPendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(
+                this, 103, addStepsIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
+            PendingIntent.getService(
+                this, 103, addStepsIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val stage = when {
+            steps >= goal -> "Legend Status 🏆"
+            percent >= 75 -> "Hero Stride ⚡"
+            percent >= 50 -> "Pace Maker 💪"
+            percent >= 25 -> "Flow State 🏃"
+            else -> "Warmup Stage 🌅"
+        }
+
+        val title = if (isTrackingPaused) {
+            "⏸ Paused  •  $stage"
+        } else {
+            "${formatSteps(steps)} steps  •  $stage"
+        }
+
+        val calories = Math.round(steps * 0.04)
+        val distance = String.format("%.2f", steps * 0.00075)
+        val body = "$distance km  •  $calories kcal  •  $percent%"
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(body)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.mipmap.launcher_icon)
             .setContentIntent(pi)
             .setOngoing(true)
             .setSilent(true)
             .setColor(if (steps >= goal) 0xFFFFD700.toInt() else 0xFF2979FF.toInt())
             .setOnlyAlertOnce(true)
-            .build()
+            .setProgress(goal, steps, false)
+            .addAction(
+                android.R.drawable.ic_media_play,
+                pauseResumeTitle,
+                pauseResumePendingIntent
+            )
+            .addAction(
+                android.R.drawable.ic_input_add,
+                "+500 Steps",
+                addStepsPendingIntent
+            )
+
+        return builder.build()
     }
 
     // A simple ASCII progress bar e.g. ██████░░░░
@@ -417,6 +529,7 @@ class StepCountService : Service(), SensorEventListener {
             prefs.edit()
                 .putInt(KEY_STEPS, 0)
                 .putString(KEY_DATE, today)
+                .putInt("manual_steps_offset", 0)
                 // reset milestone flags for new day
                 .remove("notif_fired_milestone_25")
                 .remove("notif_fired_milestone_50")
@@ -426,6 +539,7 @@ class StepCountService : Service(), SensorEventListener {
                 .apply()
             sensorBaseline          = -1
             savedStepsBeforeRestart = 0
+            manualOffset            = 0
         }
     }
 
@@ -479,9 +593,16 @@ class StepCountService : Service(), SensorEventListener {
 
     private fun readFlutterGoal(): Int {
         val fp = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val asLong = fp.getLong("flutter.$KEY_GOAL", 0L)
+        // 1. Check "flutter.step_goal" first
+        var asLong = fp.getLong("flutter.step_goal", 0L)
         if (asLong > 0L) return asLong.toInt()
-        val asInt = fp.getInt("flutter.$KEY_GOAL", 0)
+        var asInt = fp.getInt("flutter.step_goal", 0)
+        if (asInt > 0) return asInt
+
+        // 2. Fallback to "flutter.daily_step_goal"
+        asLong = fp.getLong("flutter.$KEY_GOAL", 0L)
+        if (asLong > 0L) return asLong.toInt()
+        asInt = fp.getInt("flutter.$KEY_GOAL", 0)
         return asInt
     }
 

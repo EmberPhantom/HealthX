@@ -135,9 +135,96 @@ class OnboardingService {
    */
   async completeOnboarding(userId: string, onboardingData: any): Promise<any> {
     try {
+      // Calculate automated personalized health goals
+      let dailyWaterGoalMl = 3000;
+      let dailyStepGoal = 8000;
+      let dailyCalorieGoal = 2000;
+      let dailyProteinGoalG = 100;
+      let dailyCarbGoalG = 250;
+      let dailyFatGoalG = 65;
+
+      const weight = Number(onboardingData.weight);
+      const height = Number(onboardingData.height);
+
+      if (weight > 0 && height > 0) {
+        let age = 30;
+        if (onboardingData.dateOfBirth) {
+          const dob = new Date(onboardingData.dateOfBirth);
+          const diffMs = Date.now() - dob.getTime();
+          const ageDate = new Date(diffMs);
+          age = Math.abs(ageDate.getUTCFullYear() - 1970);
+        } else if (onboardingData.age) {
+          age = Number(onboardingData.age);
+        }
+
+        const gender = onboardingData.gender || 'Male';
+        const goalsList = onboardingData.wellnessGoals || [];
+        const activityLvl = onboardingData.activityLevel !== undefined ? Number(onboardingData.activityLevel) : 2;
+
+        // Mifflin-St Jeor BMR
+        let bmr = 10 * weight + 6.25 * height - 5 * age;
+        if (gender === 'Male') {
+          bmr += 5;
+        } else if (gender === 'Female') {
+          bmr -= 161;
+        } else {
+          bmr -= 78;
+        }
+
+        // TDEE Multipliers
+        const multipliers = [1.2, 1.375, 1.55, 1.725, 1.9];
+        const multiplier = multipliers[Math.min(Math.max(activityLvl, 0), 4)];
+        const tdee = bmr * multiplier;
+
+        dailyCalorieGoal = Math.round(tdee);
+        const lowerGoals = goalsList.map((g: string) => g.toLowerCase());
+        if (lowerGoals.some((g: string) => g.includes('lose weight'))) {
+          dailyCalorieGoal = Math.round(tdee - 500);
+        } else if (lowerGoals.some((g: string) => g.includes('build muscle'))) {
+          dailyCalorieGoal = Math.round(tdee + 300);
+        }
+        dailyCalorieGoal = Math.min(Math.max(dailyCalorieGoal, 1200), 5000);
+
+        // Macros
+        dailyProteinGoalG = 1.2 * weight;
+        if (lowerGoals.some((g: string) => g.includes('build muscle'))) {
+          dailyProteinGoalG = 2.0 * weight;
+        } else if (lowerGoals.some((g: string) => g.includes('lose weight'))) {
+          dailyProteinGoalG = 1.5 * weight;
+        }
+        dailyProteinGoalG = Math.round(Math.min(Math.max(dailyProteinGoalG, 50), 300));
+
+        dailyFatGoalG = Math.round((dailyCalorieGoal * 0.25) / 9);
+        dailyCarbGoalG = Math.round((dailyCalorieGoal - (dailyProteinGoalG * 4 + dailyFatGoalG * 9)) / 4);
+
+        // Daily Steps
+        if (onboardingData.isDiabetesPatient) {
+          dailyStepGoal = 7000;
+        } else if (lowerGoals.some((g: string) => g.includes('lose weight') || g.includes('build muscle'))) {
+          dailyStepGoal = 10000;
+        }
+
+        // Daily Water
+        dailyWaterGoalMl = weight * 35;
+        if (activityLvl >= 3) {
+          dailyWaterGoalMl += 500;
+        }
+        dailyWaterGoalMl = Math.round(Math.min(Math.max(dailyWaterGoalMl, 2000), 5000));
+      }
+
+      const settings = {
+        dailyWaterGoalMl,
+        dailyStepGoal,
+        dailyCalorieGoal,
+        dailyProteinGoalG,
+        dailyCarbGoalG,
+        dailyFatGoalG,
+        reminderEnabled: false,
+      };
+
       const updatedUser = await User.findByIdAndUpdate(
         userId,
-        { ...onboardingData, onboardingComplete: true },
+        { ...onboardingData, settings, onboardingComplete: true },
         { new: true, select: '-password' }
       );
 

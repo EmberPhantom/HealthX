@@ -4,6 +4,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import path from 'path';
 import mongoSanitize from 'express-mongo-sanitize';
+import * as Sentry from '@sentry/node';
 import { config } from './config/config';
 import { securityConfig } from './config/security.config';
 import logger from './utils/logger';
@@ -18,20 +19,24 @@ import mongoose from 'mongoose';
 
 const app: Express = express();
 
+// Initialize Sentry before other middlewares
+if (config.sentry.dsn) {
+  Sentry.init({
+    dsn: config.sentry.dsn,
+    environment: config.env,
+    tracesSampleRate: 1.0,
+  });
+}
+
 // Security middleware
+const cspDirectives = { ...securityConfig.csp.directives };
+if (config.env !== 'production') {
+  cspDirectives.scriptSrc = [...cspDirectives.scriptSrc, "'unsafe-inline'"];
+  cspDirectives.styleSrc = [...cspDirectives.styleSrc, "'unsafe-inline'"];
+}
 app.use(helmet({
   contentSecurityPolicy: {
-    directives: {
-      defaultSrc: securityConfig.csp.directives.defaultSrc,
-      scriptSrc: securityConfig.csp.directives.scriptSrc,
-      styleSrc: securityConfig.csp.directives.styleSrc,
-      imgSrc: securityConfig.csp.directives.imgSrc,
-      connectSrc: securityConfig.csp.directives.connectSrc,
-      fontSrc: securityConfig.csp.directives.fontSrc,
-      objectSrc: securityConfig.csp.directives.objectSrc,
-      mediaSrc: securityConfig.csp.directives.mediaSrc,
-      frameSrc: securityConfig.csp.directives.frameSrc,
-    },
+    directives: cspDirectives,
   },
   hsts: {
     maxAge: securityConfig.https.hstsMaxAge,
@@ -42,16 +47,25 @@ app.use(helmet({
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow local development origins and physical devices
-      const allowedOrigins = [
-        config.frontend.url,
-        'http://localhost:8080',
-        'http://localhost:3000'
-      ];
-      if (!origin || allowedOrigins.indexOf(origin) !== -1 || config.env === 'development') {
-        callback(null, true);
+      if (config.env === 'production') {
+        // Strict production CORS lockdown
+        if (!origin || securityConfig.cors.origins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new AppError('Not allowed by CORS', 403));
+        }
       } else {
-        callback(new Error('Not allowed by CORS'));
+        // Permissive development CORS rules
+        const allowedOrigins = [
+          config.frontend.url,
+          'http://localhost:8080',
+          'http://localhost:3000'
+        ];
+        if (!origin || allowedOrigins.includes(origin) || config.env === 'development') {
+          callback(null, true);
+        } else {
+          callback(new AppError('Not allowed by CORS', 403));
+        }
       }
     },
     credentials: true,
@@ -80,7 +94,14 @@ app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
   next();
 }, express.static(path.join(process.cwd(), 'uploads')));
 
-// Initialize Passport
+// Serve assets statically for seeded records
+app.use('/assets', express.static(path.join(process.cwd(), 'frontend', 'assets')));
+
+// NOTE: CSRF protection middleware (`csrf.middleware.ts`) is fully implemented but is
+// intentionally not mounted globally because the primary client is a Flutter mobile app
+// (`frontend_v2`). Mobile applications utilize header-based authentication (Bearer JWT)
+// rather than session cookies, making them inherently immune to standard browser-based CSRF.
+// If a web frontend/dashboard is introduced, CSRF protection should be enabled on those routes.
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
@@ -120,6 +141,11 @@ if (config.env !== 'production') {
 app.use((req: Request, res: Response, next: NextFunction) => {
   throw new AppError(`Route ${req.originalUrl} not found`, 404);
 });
+
+// Sentry error handler (must be registered before other error middlewares)
+if (config.sentry.dsn) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 // Global error handler middleware
 app.use(errorMiddleware);

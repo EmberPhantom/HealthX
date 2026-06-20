@@ -24,10 +24,10 @@ final homeProvider = Provider<HomeState>((ref) {
   final authState = ref.watch(authProvider);
   final trackerState = ref.watch(trackerProvider);
 
-  final name = authState.user?.name ?? 'Alex';
+  final name = authState.user?.name ?? '';
   final steps = trackerState.todaySteps;
   final water = trackerState.todayWaterAmount;
-  
+
   final sleepLog = trackerState.lastSleep;
   String sleepDuration = '0h 0m';
   if (sleepLog != null) {
@@ -38,7 +38,7 @@ final homeProvider = Provider<HomeState>((ref) {
   }
 
   final glucoseLog = trackerState.lastGlucose;
-  final glucose = glucoseLog?.level ?? 95;
+  final glucose = glucoseLog?.level ?? 0;
 
   return HomeState(
     userName: name,

@@ -1,10 +1,10 @@
 import { Response } from 'express';
 import UserSubscription from '../models/UserSubscription';
 import MealPlan from '../models/MealPlan';
-import Notification from '../models/Notification';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { AppError } from '../utils/AppError';
+import notificationDispatcher from '../services/notification.service';
 
 /**
  * POST /subscriptions/subscribe
@@ -48,13 +48,13 @@ export const subscribeToPlan = catchAsync(async (req: AuthRequest, res: Response
     billingPeriod: billingPeriod || 'monthly',
   });
 
-  // Create notifications
-  await Notification.create({
+  // Push notification
+  await notificationDispatcher.dispatch({
     userId: req.user.userId,
     title: 'Plan Subscribed! 🥗',
-    message: `You are now subscribed to the "${plan.planName}" plan.`,
-    type: 'system',
-    isRead: false,
+    body: `You are now subscribed to the "${plan.planName}" plan.`,
+    type: 'success',
+    category: 'general',
   });
 
   res.status(201).json({
@@ -84,12 +84,12 @@ export const pauseSubscription = catchAsync(async (req: AuthRequest, res: Respon
     throw new AppError('Active subscription not found to pause', 404);
   }
 
-  await Notification.create({
+  await notificationDispatcher.dispatch({
     userId: req.user.userId,
     title: 'Subscription Paused ⏸️',
-    message: `Your subscription to "${subscription.planName}" is paused.`,
-    type: 'system',
-    isRead: false,
+    body: `Your subscription to "${subscription.planName}" is paused.`,
+    type: 'warning',
+    category: 'general',
   });
 
   res.status(200).json({
@@ -119,12 +119,12 @@ export const cancelSubscription = catchAsync(async (req: AuthRequest, res: Respo
     throw new AppError('Subscription not found or already ended', 404);
   }
 
-  await Notification.create({
+  await notificationDispatcher.dispatch({
     userId: req.user.userId,
     title: 'Subscription Cancelled 🛑',
-    message: `Your subscription to "${subscription.planName}" has been cancelled.`,
-    type: 'system',
-    isRead: false,
+    body: `Your subscription to "${subscription.planName}" has been cancelled.`,
+    type: 'error',
+    category: 'general',
   });
 
   res.status(200).json({

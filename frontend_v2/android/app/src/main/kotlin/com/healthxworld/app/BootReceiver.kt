@@ -20,6 +20,9 @@ class BootReceiver : BroadcastReceiver() {
 
             // ✅ Restore sleep alarms after reboot
             SleepAlarmReceiver.restoreAfterBoot(context)
+
+            // ✅ Restore water reminders after reboot
+            WaterReminderReceiver.restoreAfterBoot(context)
         }
     }
 }

@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/custom_card.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/status_badge.dart';
+import '../../../shared/utils/health_utils.dart';
 import '../providers/tracker_provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../providers/meal_provider.dart';
+import 'log_meal_sheet.dart';
+import '../../../core/models/tracker_models.dart';
 
 class TrackerScreen extends ConsumerStatefulWidget {
   const TrackerScreen({super.key});
@@ -20,367 +26,26 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
   @override
   bool get wantKeepAlive => true;
 
-  int _calculateScore(int steps, int water, String sleepStr) {
-    int score = 60; // baseline score
-    score += (steps / 10000 * 15).clamp(0, 15).toInt();
-    score += (water / 2500 * 15).clamp(0, 15).toInt();
-    if (sleepStr != '0h 0m') {
-      score += 10;
-    }
-    return score.clamp(0, 100);
+  int _calculateScore(int steps, int water, String sleepStr, {int stepGoal = 8000, int waterGoal = 3000}) {
+    return calculateScore(steps, water, sleepStr, stepGoal: stepGoal, waterGoal: waterGoal);
   }
 
   String _timeAgo(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inSeconds < 60) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return DateFormat('h:mm a').format(dt);
+    return timeAgo(dt, showDate: false);
   }
 
-  Future<void> _showStepsDialog(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController(text: ref.read(trackerProvider).todaySteps.toString());
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text('Log Today\'s Steps', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Steps',
-              border: OutlineInputBorder(),
-              hintText: 'e.g. 8000',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL', style: TextStyle(color: AppColors.neutral)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.secondary,
-              ),
-              onPressed: () async {
-                HapticFeedback.lightImpact();
-                final steps = int.tryParse(controller.text) ?? 0;
-                if (steps >= 0) {
-                  final success = await ref.read(trackerProvider.notifier).updateSteps(steps);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(success ? 'Steps updated successfully!' : 'Failed to update steps'),
-                        backgroundColor: success ? Colors.green : Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('SAVE'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
-  Future<void> _showHydrationDialog(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text('Log Hydration (mL)', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [250, 500, 750, 1000].map((amount) {
-                  return ChoiceChip(
-                    label: Text('${amount}mL'),
-                    selected: false,
-                    onSelected: (_) async {
-                      HapticFeedback.lightImpact();
-                      final success = await ref.read(trackerProvider.notifier).addWater(amount);
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(success ? 'Logged $amount mL of water!' : 'Failed to log water'),
-                            backgroundColor: success ? Colors.green : Colors.red,
-                          ),
-                        );
-                      }
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Custom Amount (mL)',
-                  border: OutlineInputBorder(),
-                  hintText: 'e.g. 350',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL', style: TextStyle(color: AppColors.neutral)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.secondary,
-              ),
-              onPressed: () async {
-                HapticFeedback.lightImpact();
-                final amount = int.tryParse(controller.text) ?? 0;
-                if (amount > 0) {
-                  final success = await ref.read(trackerProvider.notifier).addWater(amount);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(success ? 'Logged $amount mL of water!' : 'Failed to log water'),
-                        backgroundColor: success ? Colors.green : Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('LOG'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showSleepDialog(BuildContext context, WidgetRef ref) async {
-    DateTime bedtime = DateTime.now().subtract(const Duration(hours: 8));
-    DateTime wakeTime = DateTime.now();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              title: const Text('Log Sleep Session', style: TextStyle(fontWeight: FontWeight.bold)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    title: const Text('Bedtime', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                    subtitle: Text(DateFormat('yyyy-MM-dd hh:mm a').format(bedtime)),
-                    trailing: const Icon(PhosphorIconsRegular.calendar),
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: bedtime,
-                        firstDate: DateTime.now().subtract(const Duration(days: 7)),
-                        lastDate: DateTime.now(),
-                      );
-                      if (date != null) {
-                        if (!context.mounted) return;
-                        final time = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.fromDateTime(bedtime),
-                        );
-                        if (time != null) {
-                          setState(() {
-                            bedtime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                          });
-                        }
-                      }
-                    },
-                  ),
-                  ListTile(
-                    title: const Text('Waketime', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                    subtitle: Text(DateFormat('yyyy-MM-dd hh:mm a').format(wakeTime)),
-                    trailing: const Icon(PhosphorIconsRegular.calendar),
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: wakeTime,
-                        firstDate: DateTime.now().subtract(const Duration(days: 7)),
-                        lastDate: DateTime.now(),
-                      );
-                      if (date != null) {
-                        if (!context.mounted) return;
-                        final time = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.fromDateTime(wakeTime),
-                        );
-                        if (time != null) {
-                          setState(() {
-                            wakeTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                          });
-                        }
-                      }
-                    },
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL', style: TextStyle(color: AppColors.neutral)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.secondary,
-                  ),
-                  onPressed: () async {
-                    HapticFeedback.lightImpact();
-                    if (wakeTime.isAfter(bedtime)) {
-                      final success = await ref.read(trackerProvider.notifier).addSleep(bedtime, wakeTime);
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(success ? 'Sleep session logged!' : 'Failed to log sleep'),
-                            backgroundColor: success ? Colors.green : Colors.red,
-                          ),
-                        );
-                      }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Waketime must be after Bedtime'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('LOG'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _showGlucoseDialog(BuildContext context, WidgetRef ref) async {
-    final levelController = TextEditingController();
-    final noteController = TextEditingController();
-    String readingType = 'random';
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              title: const Text('Log Blood Glucose', style: TextStyle(fontWeight: FontWeight.bold)),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: levelController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Glucose Level (mg/dL)',
-                        border: OutlineInputBorder(),
-                        hintText: 'e.g. 95',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: readingType,
-                      decoration: const InputDecoration(
-                        labelText: 'Reading Type',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'fasting', child: Text('Fasting')),
-                        DropdownMenuItem(value: 'postprandial', child: Text('Postprandial')),
-                        DropdownMenuItem(value: 'random', child: Text('Random')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            readingType = val;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: noteController,
-                      decoration: const InputDecoration(
-                        labelText: 'Notes (Optional)',
-                        border: OutlineInputBorder(),
-                        hintText: 'e.g. felt slightly dizzy',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL', style: TextStyle(color: AppColors.neutral)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.secondary,
-                  ),
-                  onPressed: () async {
-                    HapticFeedback.lightImpact();
-                    final level = int.tryParse(levelController.text) ?? 0;
-                    if (level > 0) {
-                      final note = noteController.text.trim();
-                      final success = await ref.read(trackerProvider.notifier).addGlucose(
-                            level,
-                            readingType,
-                            note.isNotEmpty ? note : null,
-                          );
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(success ? 'Glucose level logged!' : 'Failed to log glucose'),
-                            backgroundColor: success ? Colors.green : Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text('LOG'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final trackerState = ref.watch(trackerProvider);
+    final mealState = ref.watch(mealProvider);
+    final authState = ref.watch(authProvider);
+    final userProfile = authState.user;
+
+    final stepTarget = userProfile?.dailyStepGoal ?? 8000;
+    final waterTarget = userProfile?.dailyWaterGoalMl ?? 3000;
 
     final sleepLog = trackerState.lastSleep;
     String sleepDuration = '0h 0m';
@@ -393,11 +58,54 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
       sleepRatio = (diff.inMinutes / 480.0).clamp(0.0, 1.0); // 8 hours is target
     }
 
-    final score = _calculateScore(trackerState.todaySteps, trackerState.todayWaterAmount, sleepDuration);
+    final score = _calculateScore(
+      trackerState.todaySteps,
+      trackerState.todayWaterAmount,
+      sleepDuration,
+      stepGoal: stepTarget,
+      waterGoal: waterTarget,
+    );
+
+    // Calculate weekly scores & labels dynamically
+    final List<double> weeklyScores = [];
+    final List<String> weeklyLabels = [];
+
+    for (int i = 6; i >= 0; i--) {
+      final targetDate = DateTime.now().subtract(Duration(days: i));
+      final dateKey = DateFormat('yyyy-MM-dd').format(targetDate);
+      
+      weeklyLabels.add(DateFormat('E').format(targetDate).substring(0, 1));
+
+      final stepLog = trackerState.stepLogs.firstWhere(
+        (s) => s.dateKey == dateKey,
+        orElse: () => StepLog(id: '', steps: 0, dateKey: dateKey),
+      );
+      final stepsVal = stepLog.steps;
+
+      final waterVal = trackerState.waterLogs
+          .where((log) => DateFormat('yyyy-MM-dd').format(log.loggedAt.toLocal()) == dateKey)
+          .fold(0, (sum, log) => sum + log.amount);
+
+      final sleepLogForDay = trackerState.sleepLogs.firstWhere(
+        (s) => s.dateKey == dateKey,
+        orElse: () => SleepLog(id: '', bedtime: DateTime.now(), wakeTime: DateTime.now(), dateKey: dateKey),
+      );
+      final sleepDiff = sleepLogForDay.wakeTime.difference(sleepLogForDay.bedtime);
+      String sleepDur = '0h 0m';
+      if (sleepDiff.inMinutes > 0 && sleepLogForDay.id.isNotEmpty) {
+        final hours = sleepDiff.inHours;
+        final mins = sleepDiff.inMinutes % 60;
+        sleepDur = '${hours}h ${mins}m';
+      }
+
+      final dayScore = calculateScore(stepsVal, waterVal, sleepDur, stepGoal: stepTarget, waterGoal: waterTarget);
+      weeklyScores.add(dayScore.toDouble());
+    }
+
     final formattedDate = DateFormat('EEEE, MMM d').format(DateTime.now());
 
     // Calculate dynamic height for today's water mini-bar (max 50)
-    final todayWaterHeight = (trackerState.todayWaterAmount / 2500.0 * 50.0).clamp(0.0, 50.0);
+    final todayWaterHeight = (trackerState.todayWaterAmount / waterTarget * 50.0).clamp(0.0, 50.0);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -475,82 +183,99 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
                             height: 150,
                             width: double.infinity,
                             child: CustomPaint(
-                              painter: _LineChartPainter(),
+                              painter: _LineChartPainter(weeklyScores),
                             ),
                           ),
                           const SizedBox(height: 12),
                           // X Axis Labels
-                          const Row(
+                          Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('W', style: TextStyle(fontSize: 12, color: AppColors.neutral, fontWeight: FontWeight.bold)),
-                              Text('T', style: TextStyle(fontSize: 12, color: AppColors.neutral, fontWeight: FontWeight.bold)),
-                              Text('F', style: TextStyle(fontSize: 12, color: AppColors.neutral, fontWeight: FontWeight.bold)),
-                              Text('S', style: TextStyle(fontSize: 12, color: AppColors.neutral, fontWeight: FontWeight.bold)),
-                              Text('S', style: TextStyle(fontSize: 12, color: AppColors.neutral, fontWeight: FontWeight.bold)),
-                              Text('M', style: TextStyle(fontSize: 12, color: AppColors.neutral, fontWeight: FontWeight.bold)),
-                              Text('T', style: TextStyle(fontSize: 12, color: AppColors.neutral, fontWeight: FontWeight.bold)),
-                            ],
+                            children: weeklyLabels.map((lbl) => Text(
+                              lbl,
+                              style: const TextStyle(fontSize: 12, color: AppColors.neutral, fontWeight: FontWeight.bold),
+                            )).toList(),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Macros Card
-                    CustomCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'MACROS',
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            textBaseline: TextBaseline.alphabetic,
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            children: [
-                              Text(
-                                '2,140',
-                                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 38,
-                                    ),
-                              ),
-                              Text(
-                                ' / 2500 kcal',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontSize: 14,
-                                    ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          _buildMacroRow(
-                            context: context,
-                            label: 'PROTEIN',
-                            current: 140,
-                            target: 180,
-                            color: AppColors.secondary,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildMacroRow(
-                            context: context,
-                            label: 'CARBS',
-                            current: 210,
-                            target: 250,
-                            color: AppColors.secondary,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildMacroRow(
-                            context: context,
-                            label: 'FAT',
-                            current: 55,
-                            target: 70,
-                            color: AppColors.primary,
-                          ),
-                        ],
+                    const SizedBox(height: 16),                    // Macros Card
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        context.push('/tracker/nutrition');
+                      },
+                      child: CustomCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'MACROS',
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                                GestureDetector(
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    LogMealSheet.show(context);
+                                  },
+                                  child: Text(
+                                    '+ LOG MEAL',
+                                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                          color: AppColors.secondary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              textBaseline: TextBaseline.alphabetic,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              children: [
+                                Text(
+                                  '${mealState.todayCalories}',
+                                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 38,
+                                      ),
+                                ),
+                                Text(
+                                  ' / ${userProfile?.dailyCalorieGoal ?? 2000} kcal',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        fontSize: 14,
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            _buildMacroRow(
+                              context: context,
+                              label: 'PROTEIN',
+                              current: mealState.todayProtein.toDouble(),
+                              target: (userProfile?.dailyProteinGoalG ?? 100).toDouble(),
+                              color: AppColors.secondary,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildMacroRow(
+                              context: context,
+                              label: 'CARBS',
+                              current: mealState.todayCarbs.toDouble(),
+                              target: (userProfile?.dailyCarbGoalG ?? 250).toDouble(),
+                              color: AppColors.secondary,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildMacroRow(
+                              context: context,
+                              label: 'FAT',
+                              current: mealState.todayFat.toDouble(),
+                              target: (userProfile?.dailyFatGoalG ?? 65).toDouble(),
+                              color: AppColors.primary,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -566,7 +291,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
                       children: [
                         // Steps Card
                         GestureDetector(
-                          onTap: () => _showStepsDialog(context, ref),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.push('/tracker/steps');
+                          },
                           child: CustomCard(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,7 +309,7 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
                                         width: 70,
                                         height: 70,
                                         child: CircularProgressIndicator(
-                                          value: (trackerState.todaySteps / 10000.0).clamp(0.0, 1.0),
+                                          value: (trackerState.todaySteps / stepTarget.toDouble()).clamp(0.0, 1.0),
                                           strokeWidth: 8,
                                           backgroundColor: Colors.grey.shade100,
                                           color: AppColors.primary,
@@ -608,7 +336,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
 
                         // Sleep Card
                         GestureDetector(
-                          onTap: () => _showSleepDialog(context, ref),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.push('/tracker/sleep');
+                          },
                           child: CustomCard(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -650,7 +381,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
 
                         // Hydration Card
                         GestureDetector(
-                          onTap: () => _showHydrationDialog(context, ref),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.push('/tracker/water');
+                          },
                           child: CustomCard(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -692,62 +426,71 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
                         ),
 
                         // Glucose Card
-                        CustomCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('GLUCOSE', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 10)),
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: AppColors.primary,
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            context.push('/tracker/glucose');
+                          },
+                          child: CustomCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('GLUCOSE', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 10)),
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: AppColors.primary,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    textBaseline: TextBaseline.alphabetic,
-                                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                                    children: [
-                                      Text(
-                                        '${trackerState.lastGlucose?.level ?? 95}',
-                                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 24,
-                                            ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'mg/dL',
-                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                              fontSize: 10,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    trackerState.lastGlucose != null
-                                        ? 'Last: ${_timeAgo(trackerState.lastGlucose!.loggedAt)} ago'
-                                        : 'No reading',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10),
-                                  ),
-                                ],
-                              ),
-                              PrimaryButton(
-                                text: 'LOG READING',
-                                height: 36,
-                                onPressed: () => _showGlucoseDialog(context, ref),
-                              ),
-                            ],
+                                  ],
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      textBaseline: TextBaseline.alphabetic,
+                                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                                      children: [
+                                        Text(
+                                          '${trackerState.lastGlucose?.level ?? 95}',
+                                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 24,
+                                              ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'mg/dL',
+                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                fontSize: 10,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      trackerState.lastGlucose != null
+                                          ? 'Last: ${_timeAgo(trackerState.lastGlucose!.loggedAt)} ago'
+                                          : 'No reading',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10),
+                                    ),
+                                  ],
+                                ),
+                                PrimaryButton(
+                                  text: 'LOG READING',
+                                  height: 36,
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    context.push('/tracker/glucose');
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -756,6 +499,23 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
                 ),
               ),
             ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          HapticFeedback.mediumImpact();
+          LogMealSheet.show(context);
+        },
+        backgroundColor: AppColors.primary,
+        icon: const Icon(PhosphorIconsRegular.plus, color: AppColors.secondary, size: 18),
+        label: const Text(
+          'LOG MEAL',
+          style: TextStyle(
+            color: AppColors.secondary,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            fontSize: 12,
+          ),
+        ),
+      ),
     );
   }
 
@@ -816,6 +576,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> with AutomaticKee
 }
 
 class _LineChartPainter extends CustomPainter {
+  final List<double> scores;
+
+  _LineChartPainter(this.scores);
+
   @override
   void paint(Canvas canvas, Size size) {
     final Paint linePaint = Paint()
@@ -827,15 +591,19 @@ class _LineChartPainter extends CustomPainter {
     final Paint fillPaint = Paint()
       ..style = PaintingStyle.fill;
 
-    final List<Offset> points = [
-      Offset(0, size.height * 0.7),
-      Offset(size.width * 0.16, size.height * 0.55),
-      Offset(size.width * 0.33, size.height * 0.8),
-      Offset(size.width * 0.5, size.height * 0.4),
-      Offset(size.width * 0.66, size.height * 0.3),
-      Offset(size.width * 0.83, size.height * 0.5),
-      Offset(size.width, size.height * 0.2),
-    ];
+    final List<double> data = scores.length == 7 ? scores : [60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0];
+
+    final List<Offset> points = [];
+    final double stepX = size.width / 6.0;
+
+    for (int i = 0; i < 7; i++) {
+      // Score ranges 0 to 100. Lower y means higher value on canvas:
+      // normalizedScore goes 0.0 to 1.0. Y goes from size.height * 0.9 (score 0) to size.height * 0.1 (score 100).
+      final double normalizedScore = (data[i] / 100.0).clamp(0.0, 1.0);
+      final double y = size.height * (0.9 - normalizedScore * 0.8);
+      final double x = i * stepX;
+      points.add(Offset(x, y));
+    }
 
     final Path path = Path();
     path.moveTo(points[0].dx, points[0].dy);
@@ -896,5 +664,11 @@ class _LineChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
+    if (oldDelegate.scores.length != scores.length) return true;
+    for (int i = 0; i < scores.length; i++) {
+      if (oldDelegate.scores[i] != scores[i]) return true;
+    }
+    return false;
+  }
 }

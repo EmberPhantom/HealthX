@@ -33,7 +33,7 @@ const orderSchema = new Schema<IOrder>(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     addressId: { type: Schema.Types.ObjectId, ref: 'Address' },
     items: [{
-      menuItemId: { type: Schema.Types.ObjectId, ref: 'MenuItem', required: true },
+      menuItemId: { type: String, required: true },
       name: { type: String, required: true },
       quantity: { type: Number, required: true },
       price: { type: Number, required: true },

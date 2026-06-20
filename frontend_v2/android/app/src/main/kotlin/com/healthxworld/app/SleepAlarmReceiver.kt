@@ -30,6 +30,7 @@ class SleepAlarmReceiver : BroadcastReceiver() {
         const val ACTION_SLEEP_GOAL       = "com.healthxworld.app.SLEEP_GOAL_COMPLETE"
         const val ACTION_MORNING_MOTIV    = "com.healthxworld.app.SLEEP_MORNING_MOTIV"
         const val ACTION_SNOOZE_15        = "com.healthxworld.app.SLEEP_SNOOZE_15"
+        const val ACTION_SLEEP_NOW        = "com.healthxworld.app.SLEEP_NOW"
 
         // Notification IDs
         const val CHANNEL_SLEEP_ID  = "sleep_reminder_channel"
@@ -45,6 +46,7 @@ class SleepAlarmReceiver : BroadcastReceiver() {
         const val RC_GOAL     = 6003
         const val RC_MOTIV    = 6004
         const val RC_SNOOZE   = 6005
+        const val RC_SLEEP_NOW = 6006
 
         // ── Schedule all 4 alarms ─────────────────────────────────────────────
         fun scheduleAll(context: Context, bedtimeHour: Int, bedtimeMinute: Int,
@@ -251,6 +253,7 @@ class SleepAlarmReceiver : BroadcastReceiver() {
                 scheduleAlarm(context, ACTION_BEDTIME_ALERT, RC_ALERT, bH, bM, 0)
             }
             ACTION_SLEEP_GOAL -> {
+                calculateMorningSleep(prefs)
                 sendSleepGoalComplete(context, prefs)
                 val wH = prefs.getInt(KEY_WAKE_HOUR, 6)
                 val wM = prefs.getInt(KEY_WAKE_MINUTE, 0)
@@ -264,6 +267,9 @@ class SleepAlarmReceiver : BroadcastReceiver() {
             }
             ACTION_SNOOZE_15 -> {
                 doSnooze(context, 15)
+            }
+            ACTION_SLEEP_NOW -> {
+                handleSleepNow(context, prefs)
             }
         }
     }
@@ -290,8 +296,12 @@ class SleepAlarmReceiver : BroadcastReceiver() {
         val launchIntent = context.packageManager
             .getLaunchIntentForPackage(context.packageName)
 
-        val sleepNowPi = PendingIntent.getActivity(
-            context, 7001, launchIntent,
+        val sleepNowBroadcastIntent = Intent(context, SleepAlarmReceiver::class.java).apply {
+            action = ACTION_SLEEP_NOW
+        }
+        val sleepNowPi = PendingIntent.getBroadcast(
+            context, RC_SLEEP_NOW,
+            sleepNowBroadcastIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -422,5 +432,53 @@ class SleepAlarmReceiver : BroadcastReceiver() {
             }
             .build()
         sendNotifIfAllowed(context, id, notif)
+    }
+
+    private fun handleSleepNow(context: Context, prefs: SharedPreferences) {
+        prefs.edit().putLong("sleep_start_time", System.currentTimeMillis()).apply()
+
+        // Dismiss the alert notification
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(NOTIF_ALERT_ID)
+
+        // Launch the app
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        launchIntent?.let { context.startActivity(it) }
+
+        android.util.Log.d("SleepAlarm", "😴 Sleep session started via notification action.")
+    }
+
+    private fun calculateMorningSleep(prefs: SharedPreferences) {
+        var startTime = prefs.getLong("sleep_start_time", 0L)
+        val endTime = System.currentTimeMillis()
+
+        val bedtimeHour = prefs.getInt(KEY_BEDTIME_HOUR, 23)
+        val bedtimeMin = prefs.getInt(KEY_BEDTIME_MINUTE, 0)
+
+        if (startTime == 0L) {
+            val cal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, bedtimeHour)
+                set(Calendar.MINUTE, bedtimeMin)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                if (timeInMillis > endTime) {
+                    add(Calendar.DAY_OF_YEAR, -1)
+                }
+            }
+            startTime = cal.timeInMillis
+            android.util.Log.d("SleepAlarm", "💤 No manual sleep start logged. Using scheduled bedtime fallback.")
+        }
+
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        val dateKey = sdf.format(java.util.Date(startTime))
+
+        prefs.edit()
+            .putString("pending_sleep_log", "$startTime|$endTime|$dateKey")
+            .remove("sleep_start_time")
+            .apply()
+
+        android.util.Log.d("SleepAlarm", "🌅 Sleep log recorded: date=$dateKey, start=$startTime, end=$endTime")
     }
 }

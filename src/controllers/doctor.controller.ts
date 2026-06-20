@@ -61,3 +61,12 @@ export const getDoctorSlots = catchAsync(async (req: Request, res: Response) => 
     data: slotsConfig ? slotsConfig.times : [],
   });
 });
+
+export const getSpecialties = catchAsync(async (req: Request, res: Response) => {
+  const specialties = await doctorService.getSpecialties();
+  res.status(200).json({
+    statusCode: 200,
+    status: 'success',
+    data: specialties,
+  });
+});

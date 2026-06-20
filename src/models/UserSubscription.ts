@@ -36,5 +36,7 @@ const userSubscriptionSchema = new Schema<IUserSubscription>(
   { timestamps: true }
 );
 
+userSubscriptionSchema.index({ userId: 1, createdAt: -1 });
+
 const UserSubscription = mongoose.model<IUserSubscription>('UserSubscription', userSubscriptionSchema);
 export default UserSubscription;

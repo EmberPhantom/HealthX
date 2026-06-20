@@ -1,4 +1,6 @@
 import { Router, RequestHandler } from 'express';
+import { validateRequest } from '../middlewares/validate.middleware';
+import { createHealthRecordSchema } from '../schemas/healthRecord.schema';
 import * as healthRecordController from '../controllers/healthRecord.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { uploadHealthRecord, handleMulterError } from '../middlewares/upload.middleware';
@@ -14,6 +16,7 @@ router.post(
   '/',
   h(uploadHealthRecord),
   h(handleMulterError),
+  h(validateRequest(createHealthRecordSchema)),
   h(healthRecordController.createHealthRecord)
 );
 router.delete('/:id', h(healthRecordController.deleteHealthRecord));

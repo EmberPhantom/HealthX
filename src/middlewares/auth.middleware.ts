@@ -20,38 +20,26 @@ export const authMiddleware = (
   res: Response,
   next: NextFunction
 ): void => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return next(new AppError('Authorization token is missing', 401));
+  }
+
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-
-    if (!token) {
-      throw new AppError('Authorization token is missing', 401);
-    }
-
-    try {
-      const payload = authService.verifyToken(token, 'access');
-      req.user = {
-        userId: payload.userId,
-        role: payload.role,
-      };
-      next();
-    } catch (error) {
-      if (error instanceof AppError) throw error;
-      throw new AppError('Invalid or expired token', 401);
-    }
+    const payload = authService.verifyToken(token, 'access');
+    req.user = {
+      userId: payload.userId,
+      role: payload.role,
+    };
+    res.locals.userId = payload.userId;
+    next();
   } catch (error) {
     if (error instanceof AppError) {
-      res.status(error.statusCode).json({
-        statusCode: error.statusCode,
-        status: 'fail',
-        message: error.message,
-      });
+      next(error);
     } else {
       logger.error('Auth middleware error:', error);
-      res.status(500).json({
-        statusCode: 500,
-        status: 'error',
-        message: 'Authentication failed',
-      });
+      next(new AppError('Invalid or expired token', 401));
     }
   }
 };
@@ -62,21 +50,11 @@ export const authMiddleware = (
 export const roleMiddleware = (allowedRoles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({
-        statusCode: 401,
-        status: 'fail',
-        message: 'User not authenticated',
-      });
-      return;
+      return next(new AppError('User not authenticated', 401));
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({
-        statusCode: 403,
-        status: 'fail',
-        message: 'You do not have permission to access this resource',
-      });
-      return;
+      return next(new AppError('You do not have permission to access this resource', 403));
     }
 
     next();

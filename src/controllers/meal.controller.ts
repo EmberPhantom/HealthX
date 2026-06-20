@@ -1,5 +1,7 @@
 import { Response } from 'express';
 import { mealService } from '../services/meal.service';
+import AIHealthProfile from '../models/AIHealthProfile';
+import aiHealthService from '../services/ai-health.service';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { AppError } from '../utils/AppError';
@@ -31,11 +33,25 @@ export const logMeal = catchAsync(async (req: AuthRequest, res: Response) => {
 
   const mealLog = await mealService.logMeal(req.user.userId, req.body);
 
+  // AI inline meal warning — rule-based, no extra API call
+  const aiProfile = await AIHealthProfile.findOne({ userId: req.user.userId });
+  const warning = aiHealthService.getMealInlineWarning(aiProfile, {
+    foodName: req.body.foodName || '',
+    ingredients: Array.isArray(req.body.ingredients) ? req.body.ingredients : [],
+    carbs: req.body.carbs,
+    calories: req.body.calories,
+    healthPoints: req.body.healthPoints,
+  });
+
+  // Increment log counter (may trigger lightweight re-analysis in background)
+  aiHealthService.onLogEntry(req.user.userId, 'meal_log').catch(() => {});
+
   res.status(201).json({
     statusCode: 201,
     status: 'success',
     message: 'Meal logged successfully',
     data: mealLog,
+    warning,   // null if no conflict detected or user has no AI profile
   });
 });
 

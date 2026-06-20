@@ -7,6 +7,7 @@ const router = Router();
 const h = (fn: any): RequestHandler => fn;
 
 router.get('/', h(doctorController.getDoctors));
+router.get('/specialties', h(doctorController.getSpecialties));
 router.get('/:id', h(doctorController.getDoctor));
 router.get('/:id/slots', h(authMiddleware), h(doctorController.getDoctorSlots));
 

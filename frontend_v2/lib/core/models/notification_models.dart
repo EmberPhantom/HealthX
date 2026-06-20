@@ -4,7 +4,8 @@ class NotificationModel extends Equatable {
   final String id;
   final String title;
   final String body;
-  final String type; // 'info' | 'success' | 'warning' | 'error'
+  final String type;     // 'info' | 'success' | 'warning' | 'error'
+  final String category; // 'general' | 'orders' | 'appointments' | 'chat' | 'health' | 'promotions'
   final bool isRead;
   final DateTime createdAt;
 
@@ -13,6 +14,7 @@ class NotificationModel extends Equatable {
     required this.title,
     required this.body,
     required this.type,
+    this.category = 'general',
     required this.isRead,
     required this.createdAt,
   });
@@ -23,9 +25,10 @@ class NotificationModel extends Equatable {
       title: json['title'] ?? '',
       body: json['body'] ?? '',
       type: json['type'] ?? 'info',
+      category: json['category'] ?? 'general',
       isRead: json['isRead'] ?? false,
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt']).toLocal()
+          ? DateTime.tryParse(json['createdAt'])?.toLocal() ?? DateTime.now()
           : DateTime.now(),
     );
   }
@@ -36,6 +39,7 @@ class NotificationModel extends Equatable {
       'title': title,
       'body': body,
       'type': type,
+      'category': category,
       'isRead': isRead,
       'createdAt': createdAt.toIso8601String(),
     };
@@ -46,6 +50,7 @@ class NotificationModel extends Equatable {
     String? title,
     String? body,
     String? type,
+    String? category,
     bool? isRead,
     DateTime? createdAt,
   }) {
@@ -54,11 +59,12 @@ class NotificationModel extends Equatable {
       title: title ?? this.title,
       body: body ?? this.body,
       type: type ?? this.type,
+      category: category ?? this.category,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
     );
   }
 
   @override
-  List<Object?> get props => [id, title, body, type, isRead, createdAt];
+  List<Object?> get props => [id, title, body, type, category, isRead, createdAt];
 }

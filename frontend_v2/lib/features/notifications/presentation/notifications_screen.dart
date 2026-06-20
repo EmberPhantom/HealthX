@@ -14,6 +14,7 @@ class NotificationsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(notificationProvider);
     final notifications = state.notifications;
+    final hasUnread = state.unreadCount > 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -25,13 +26,51 @@ class NotificationsScreen extends ConsumerWidget {
           icon: const Icon(PhosphorIconsRegular.arrowLeft, color: AppColors.secondary, size: 22),
           onPressed: () => context.pop(),
         ),
-        title: Text(
-          'Notifications',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Notifications',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            if (state.unreadCount > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  state.unreadCount > 99 ? '99+' : '${state.unreadCount}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ),
+            ],
+          ],
         ),
         centerTitle: true,
+        actions: [
+          if (hasUnread)
+            TextButton(
+              onPressed: () {
+                ref.read(notificationProvider.notifier).markAllRead();
+              },
+              child: Text(
+                'Mark all',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.secondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+        ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1.0),
           child: Divider(
@@ -178,12 +217,12 @@ class _AnimatedNotificationTile extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: notification.isRead ? AppColors.tertiary : const Color(0xFFFBFEEB), // Subtle lime tint for unread
+              color: notification.isRead ? AppColors.tertiary : const Color(0xFFFBFEEB),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: notification.isRead
                     ? AppColors.border.withOpacity(0.5)
-                    : AppColors.primary.withOpacity(0.3),
+                    : _categoryAccent(notification.category).withOpacity(0.3),
                 width: 1,
               ),
               boxShadow: const [
@@ -197,17 +236,17 @@ class _AnimatedNotificationTile extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Colored icon circle based on type
+                // Category-specific icon
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: _getIconBgColor(notification.type),
+                    color: _categoryAccent(notification.category).withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    _getIcon(notification.type),
+                    _categoryIcon(notification.category, notification.type),
                     size: 20,
-                    color: _getIconColor(notification.type),
+                    color: _categoryAccent(notification.category),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -230,8 +269,8 @@ class _AnimatedNotificationTile extends StatelessWidget {
                             Container(
                               width: 8,
                               height: 8,
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
+                              decoration: BoxDecoration(
+                                color: _categoryAccent(notification.category),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -246,13 +285,40 @@ class _AnimatedNotificationTile extends StatelessWidget {
                             ),
                       ),
                       const SizedBox(height: 10),
-                      Text(
-                        DateFormat('MMM d, h:mm a').format(notification.createdAt),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.neutral.withOpacity(0.8),
-                        ),
+                      Row(
+                        children: [
+                          Icon(
+                            _categoryIcon(notification.category, ''),
+                            size: 11,
+                            color: AppColors.neutral.withOpacity(0.6),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _categoryLabel(notification.category),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: _categoryAccent(notification.category).withOpacity(0.8),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '•',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.neutral.withOpacity(0.4),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            DateFormat('MMM d, h:mm a').format(notification.createdAt),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.neutral.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -265,42 +331,66 @@ class _AnimatedNotificationTile extends StatelessWidget {
     );
   }
 
-  IconData _getIcon(String type) {
-    switch (type) {
-      case 'success':
-        return PhosphorIconsRegular.checkCircle;
-      case 'warning':
-        return PhosphorIconsRegular.warning;
-      case 'error':
-        return PhosphorIconsRegular.warningCircle;
-      default:
-        return PhosphorIconsRegular.bell;
-    }
-  }
+  // ── Helpers ──────────────────────────────────────────────────────────────────
 
-  Color _getIconBgColor(String type) {
-    switch (type) {
-      case 'success':
-        return const Color(0xFFE8F5E9);
-      case 'warning':
-        return const Color(0xFFFFF8E1);
-      case 'error':
-        return const Color(0xFFFFEBEE);
-      default:
-        return const Color(0xFFF5F5F5);
-    }
-  }
-
-  Color _getIconColor(String type) {
-    switch (type) {
-      case 'success':
-        return const Color(0xFF4CAF50);
-      case 'warning':
-        return const Color(0xFFFFB300);
-      case 'error':
-        return const Color(0xFFE53935);
+  Color _categoryAccent(String category) {
+    switch (category) {
+      case 'orders':
+        return const Color(0xFF10B981);
+      case 'appointments':
+        return const Color(0xFF6366F1);
+      case 'chat':
+        return const Color(0xFF0EA5E9);
+      case 'health':
+        return const Color(0xFFEF4444);
+      case 'promotions':
+        return const Color(0xFFD97706);
       default:
         return AppColors.secondary;
+    }
+  }
+
+  IconData _categoryIcon(String category, String type) {
+    switch (category) {
+      case 'orders':
+        return PhosphorIconsRegular.shoppingBag;
+      case 'appointments':
+        return PhosphorIconsRegular.calendarCheck;
+      case 'chat':
+        return PhosphorIconsRegular.chatCircle;
+      case 'health':
+        return PhosphorIconsRegular.heartbeat;
+      case 'promotions':
+        return PhosphorIconsRegular.tag;
+      default:
+        // Fall back to type-based icon for 'general'
+        switch (type) {
+          case 'success':
+            return PhosphorIconsRegular.checkCircle;
+          case 'warning':
+            return PhosphorIconsRegular.warning;
+          case 'error':
+            return PhosphorIconsRegular.warningCircle;
+          default:
+            return PhosphorIconsRegular.bell;
+        }
+    }
+  }
+
+  String _categoryLabel(String category) {
+    switch (category) {
+      case 'orders':
+        return 'Orders';
+      case 'appointments':
+        return 'Appointments';
+      case 'chat':
+        return 'Consultation';
+      case 'health':
+        return 'Health Alert';
+      case 'promotions':
+        return 'Offers';
+      default:
+        return 'HealthX';
     }
   }
 }

@@ -223,6 +223,24 @@ class CacheService {
   }
 
   /**
+   * Delete hash field
+   */
+  async hdel(key: string, field: string): Promise<number> {
+    try {
+      if (isRedisConnected()) {
+        const redisClient = getRedisClient();
+        return await redisClient!.hdel(key, field);
+      } else {
+        await this.delete(`${key}:${field}`);
+        return 1;
+      }
+    } catch (error) {
+      logger.error('Cache hdel error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all hash fields
    */
   async hgetall(key: string): Promise<Record<string, any>> {

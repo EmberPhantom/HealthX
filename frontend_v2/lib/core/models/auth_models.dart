@@ -141,6 +141,17 @@ class UserProfile extends Equatable {
   final double? weight;
   final bool? isDiabetesPatient;
   final bool? isBpPatient;
+  final int? points;
+  final List<String> wellnessGoals;
+  final List<String> favorites;
+  final String? dominantDosha;
+  final int dailyWaterGoalMl;
+  final int dailyStepGoal;
+  final int dailyCalorieGoal;
+  final int dailyProteinGoalG;
+  final int dailyCarbGoalG;
+  final int dailyFatGoalG;
+  final bool reminderEnabled;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -160,6 +171,17 @@ class UserProfile extends Equatable {
     this.weight,
     this.isDiabetesPatient,
     this.isBpPatient,
+    this.points,
+    this.wellnessGoals = const [],
+    this.favorites = const [],
+    this.dominantDosha,
+    this.dailyWaterGoalMl = 3000,
+    this.dailyStepGoal = 8000,
+    this.dailyCalorieGoal = 2000,
+    this.dailyProteinGoalG = 100,
+    this.dailyCarbGoalG = 250,
+    this.dailyFatGoalG = 65,
+    this.reminderEnabled = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -170,6 +192,9 @@ class UserProfile extends Equatable {
 
     final userMap = map.containsKey('user') ? map['user'] as Map<String, dynamic> : map;
     final patientMap = map.containsKey('patient') ? map['patient'] as Map<String, dynamic> : null;
+    final settingsMap = userMap.containsKey('settings') 
+        ? userMap['settings'] as Map<String, dynamic>? 
+        : (map.containsKey('settings') ? map['settings'] as Map<String, dynamic>? : null);
 
     return UserProfile(
       id: userMap['_id'] ?? userMap['id'] ?? '',
@@ -189,6 +214,17 @@ class UserProfile extends Equatable {
       weight: patientMap != null ? (patientMap['weight'] as num?)?.toDouble() : (map['weight'] as num?)?.toDouble(),
       isDiabetesPatient: patientMap != null ? patientMap['isDiabetesPatient'] as bool? : map['isDiabetesPatient'] as bool?,
       isBpPatient: patientMap != null ? patientMap['isBpPatient'] as bool? : map['isBpPatient'] as bool?,
+      points: userMap['points'] is int ? userMap['points'] : (userMap['points'] as num?)?.toInt(),
+      wellnessGoals: List<String>.from(userMap['wellnessGoals'] ?? map['wellnessGoals'] ?? []),
+      favorites: List<String>.from(userMap['favorites'] ?? map['favorites'] ?? []),
+      dominantDosha: userMap['dominantDosha'] ?? map['dominantDosha'],
+      dailyWaterGoalMl: settingsMap?['dailyWaterGoalMl'] ?? 3000,
+      dailyStepGoal: settingsMap?['dailyStepGoal'] ?? 8000,
+      dailyCalorieGoal: settingsMap?['dailyCalorieGoal'] ?? 2000,
+      dailyProteinGoalG: settingsMap?['dailyProteinGoalG'] ?? 100,
+      dailyCarbGoalG: settingsMap?['dailyCarbGoalG'] ?? 250,
+      dailyFatGoalG: settingsMap?['dailyFatGoalG'] ?? 65,
+      reminderEnabled: settingsMap?['reminderEnabled'] ?? false,
     );
   }
 
@@ -208,6 +244,17 @@ class UserProfile extends Equatable {
         weight = null,
         isDiabetesPatient = null,
         isBpPatient = null,
+        points = null,
+        wellnessGoals = const [],
+        favorites = const [],
+        dominantDosha = null,
+        dailyWaterGoalMl = 3000,
+        dailyStepGoal = 8000,
+        dailyCalorieGoal = 2000,
+        dailyProteinGoalG = 100,
+        dailyCarbGoalG = 250,
+        dailyFatGoalG = 65,
+        reminderEnabled = false,
         createdAt = null,
         updatedAt = null;
 
@@ -227,6 +274,19 @@ class UserProfile extends Equatable {
     'weight': weight,
     'isDiabetesPatient': isDiabetesPatient,
     'isBpPatient': isBpPatient,
+    'points': points,
+    'wellnessGoals': wellnessGoals,
+    'favorites': favorites,
+    'dominantDosha': dominantDosha,
+    'settings': {
+      'dailyWaterGoalMl': dailyWaterGoalMl,
+      'dailyStepGoal': dailyStepGoal,
+      'dailyCalorieGoal': dailyCalorieGoal,
+      'dailyProteinGoalG': dailyProteinGoalG,
+      'dailyCarbGoalG': dailyCarbGoalG,
+      'dailyFatGoalG': dailyFatGoalG,
+      'reminderEnabled': reminderEnabled,
+    }
   };
 
   UserProfile copyWith({
@@ -245,6 +305,17 @@ class UserProfile extends Equatable {
     double? weight,
     bool? isDiabetesPatient,
     bool? isBpPatient,
+    int? points,
+    List<String>? wellnessGoals,
+    List<String>? favorites,
+    String? dominantDosha,
+    int? dailyWaterGoalMl,
+    int? dailyStepGoal,
+    int? dailyCalorieGoal,
+    int? dailyProteinGoalG,
+    int? dailyCarbGoalG,
+    int? dailyFatGoalG,
+    bool? reminderEnabled,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -262,6 +333,17 @@ class UserProfile extends Equatable {
       weight: weight ?? this.weight,
       isDiabetesPatient: isDiabetesPatient ?? this.isDiabetesPatient,
       isBpPatient: isBpPatient ?? this.isBpPatient,
+      points: points ?? this.points,
+      wellnessGoals: wellnessGoals ?? this.wellnessGoals,
+      favorites: favorites ?? this.favorites,
+      dominantDosha: dominantDosha ?? this.dominantDosha,
+      dailyWaterGoalMl: dailyWaterGoalMl ?? this.dailyWaterGoalMl,
+      dailyStepGoal: dailyStepGoal ?? this.dailyStepGoal,
+      dailyCalorieGoal: dailyCalorieGoal ?? this.dailyCalorieGoal,
+      dailyProteinGoalG: dailyProteinGoalG ?? this.dailyProteinGoalG,
+      dailyCarbGoalG: dailyCarbGoalG ?? this.dailyCarbGoalG,
+      dailyFatGoalG: dailyFatGoalG ?? this.dailyFatGoalG,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -271,7 +353,9 @@ class UserProfile extends Equatable {
   List<Object?> get props => [
     id, name, email, phone, avatarUrl, gender, age, role,
     isEmailVerified, isActive, onboardingComplete, height, weight,
-    isDiabetesPatient, isBpPatient
+    isDiabetesPatient, isBpPatient, points, wellnessGoals, favorites, dominantDosha,
+    dailyWaterGoalMl, dailyStepGoal, dailyCalorieGoal, dailyProteinGoalG,
+    dailyCarbGoalG, dailyFatGoalG, reminderEnabled
   ];
 }
 

@@ -9,6 +9,7 @@ class PrimaryButton extends StatelessWidget {
   final bool isFullWidth;
   final bool isOutlined;
   final double height;
+  final bool isLoading;
 
   const PrimaryButton({
     super.key,
@@ -18,6 +19,7 @@ class PrimaryButton extends StatelessWidget {
     this.isFullWidth = true,
     this.isOutlined = false,
     this.height = 48.0,
+    this.isLoading = false,
   });
 
   @override
@@ -42,25 +44,36 @@ class PrimaryButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
           );
 
-    final Widget buttonChild = Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
-      children: [
-        if (icon != null) ...[
-          icon!,
-          const SizedBox(width: 8),
-        ],
-        Text(
-          text,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+    final Widget buttonChild = isLoading
+        ? const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
                 color: AppColors.secondary,
               ),
-        ),
-      ],
-    );
+            ),
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                icon!,
+                const SizedBox(width: 8),
+              ],
+              Text(
+                text,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.secondary,
+                    ),
+              ),
+            ],
+          );
 
-    final VoidCallback? hapticOnPressed = onPressed != null
+    final VoidCallback? hapticOnPressed = (onPressed != null && !isLoading)
         ? () {
             HapticFeedback.lightImpact();
             onPressed?.call();

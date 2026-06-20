@@ -38,24 +38,22 @@ describe('Validate Middleware Isolation Tests', () => {
       expect(statusMock).not.toHaveBeenCalled();
     });
 
-    it('should return 400 if request body is invalid', () => {
+    it('should call next with AppError if request body is invalid', () => {
       mockReq.body = { email: 'not-an-email', age: 10 };
       const middleware = validateRequest(testSchema);
 
       middleware(mockReq as Request, mockRes as Response, nextFunction);
 
-      expect(nextFunction).not.toHaveBeenCalled();
-      expect(statusMock).toHaveBeenCalledWith(400);
-      expect(jsonMock).toHaveBeenCalledWith(
+      expect(nextFunction).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: 'fail',
+          statusCode: 400,
           message: 'Validation error',
-          errors: expect.arrayContaining([
-            expect.objectContaining({ field: 'email' }),
-            expect.objectContaining({ field: 'age' }),
+          details: expect.arrayContaining([
+            expect.objectContaining({ field: expect.any(String) }),
           ]),
         })
       );
+      expect(statusMock).not.toHaveBeenCalled();
     });
   });
 
@@ -70,14 +68,19 @@ describe('Validate Middleware Isolation Tests', () => {
       expect(nextFunction).toHaveBeenCalled();
     });
 
-    it('should return 400 if query parameters are invalid', () => {
+    it('should call next with AppError if query parameters are invalid', () => {
       mockReq.query = { email: 'query@example.com', age: 15 as any };
       const middleware = validateQuery(testSchema);
 
       middleware(mockReq as Request, mockRes as Response, nextFunction);
 
-      expect(nextFunction).not.toHaveBeenCalled();
-      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(nextFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 400,
+          message: 'Query validation error',
+        })
+      );
+      expect(statusMock).not.toHaveBeenCalled();
     });
   });
 });

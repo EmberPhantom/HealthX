@@ -21,9 +21,14 @@ export interface IUser extends Document {
   dominantDosha?: 'Vata' | 'Pitta' | 'Kapha' | 'Vata-Pitta' | 'Pitta-Kapha' | 'Vata-Kapha' | 'Tridoshic';
   appRating?: number;
   points: number;
+  fcmToken?: string;
   settings?: {
     dailyWaterGoalMl: number;
     dailyStepGoal: number;
+    dailyCalorieGoal: number;
+    dailyProteinGoalG: number;
+    dailyCarbGoalG: number;
+    dailyFatGoalG: number;
     reminderEnabled: boolean;
   };
   createdAt: Date;
@@ -123,9 +128,18 @@ const userSchema = new Schema<IUser>(
       type: Number,
       default: 0,
     },
+    fcmToken: {
+      type: String,
+      default: null,
+      select: false, // never sent in normal profile responses
+    },
     settings: {
       dailyWaterGoalMl: { type: Number, default: 3000 },
       dailyStepGoal: { type: Number, default: 8000 },
+      dailyCalorieGoal: { type: Number, default: 2000 },
+      dailyProteinGoalG: { type: Number, default: 100 },
+      dailyCarbGoalG: { type: Number, default: 250 },
+      dailyFatGoalG: { type: Number, default: 65 },
       reminderEnabled: { type: Boolean, default: false },
     },
   },

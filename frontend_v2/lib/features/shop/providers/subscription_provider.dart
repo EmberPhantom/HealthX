@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/subscription_service.dart';
 import '../../../core/models/subscription_models.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class SubscriptionState {
   final List<UserSubscription> subscriptions;
@@ -14,11 +15,10 @@ class SubscriptionState {
   });
 
   UserSubscription? get activeSubscription {
-    if (subscriptions.isEmpty) return null;
     for (final sub in subscriptions) {
       if (sub.status == 'active') return sub;
     }
-    return subscriptions.first;
+    return null;
   }
 
   SubscriptionState copyWith({
@@ -39,7 +39,10 @@ class SubscriptionNotifier extends Notifier<SubscriptionState> {
 
   @override
   SubscriptionState build() {
-    Future.microtask(() => fetchSubscriptions());
+    final session = ref.watch(sessionProvider);
+    if (session != null) {
+      Future.microtask(() => fetchSubscriptions());
+    }
     return const SubscriptionState();
   }
 
@@ -62,6 +65,29 @@ class SubscriptionNotifier extends Notifier<SubscriptionState> {
       final sub = await _service.subscribeToPlan(planId, price, planName);
       state = state.copyWith(
         subscriptions: [sub, ...state.subscriptions],
+        isLoading: false,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> pause(String id) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final sub = await _service.pauseSubscription(id);
+
+      final updated = state.subscriptions.map((s) {
+        if (s.id == id) {
+          return sub;
+        }
+        return s;
+      }).toList();
+
+      state = state.copyWith(
+        subscriptions: updated,
         isLoading: false,
       );
       return true;
@@ -96,3 +122,8 @@ class SubscriptionNotifier extends Notifier<SubscriptionState> {
 }
 
 final subscriptionProvider = NotifierProvider<SubscriptionNotifier, SubscriptionState>(SubscriptionNotifier.new);
+
+final subscriptionPlansProvider = FutureProvider<List<SubscriptionPlan>>((ref) async {
+  return SubscriptionService().getSubscriptionPlans();
+});
+

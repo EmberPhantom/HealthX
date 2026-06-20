@@ -10,5 +10,8 @@ router.get('/categories', h(authMiddleware), h(contentController.getCategories))
 router.get('/banners', h(authMiddleware), h(contentController.getBanners));
 router.get('/meal-plans', h(authMiddleware), h(contentController.getMealPlans));
 router.get('/menu-items', h(authMiddleware), h(contentController.getMenuItems));
+router.get('/subscription-plans', h(authMiddleware), h(contentController.getSubscriptionPlans));
+router.get('/reward-tasks', h(authMiddleware), h(contentController.getRewardTasks));
+router.get('/support-info', h(authMiddleware), h(contentController.getSupportInfo));
 
 export default router;

@@ -1,61 +1,74 @@
 import Order from '../models/Order';
-import Notification from '../models/Notification';
+import notificationDispatcher from './notification.service';
 import logger from '../utils/logger';
+
+// Status label + body copy per progression step
+const STEP_COPY: Record<string, { title: string; body: (id: string) => string }> = {
+  confirmed: {
+    title: 'Order Confirmed! 👨‍🍳',
+    body: (id) => `Your order #${id} has been confirmed by the restaurant.`,
+  },
+  preparing: {
+    title: 'Preparing Your Meal 🍲',
+    body: (id) => `The kitchen is preparing your order #${id}.`,
+  },
+  on_the_way: {
+    title: 'Order Dispatched! 🛵',
+    body: () => 'Our delivery partner Ramesh Kumar is en route with your order.',
+  },
+  delivered: {
+    title: 'Order Delivered! 🎉',
+    body: (id) => `Your order #${id} has been delivered. Enjoy your meal!`,
+  },
+};
+
+/** Determine the next status based on elapsed time thresholds */
+function nextStatus(current: string, elapsedMinutes: number): string | null {
+  if (current === 'placed' && elapsedMinutes >= 1) return 'confirmed';
+  if (current === 'confirmed' && elapsedMinutes >= 3) return 'preparing';
+  if (current === 'preparing' && elapsedMinutes >= 10) return 'on_the_way';
+  if (current === 'on_the_way' && elapsedMinutes >= 20) return 'delivered';
+  return null;
+}
 
 class OrderProgressionService {
   /**
-   * Periodically checks and progresses orders
+   * Background interval — progresses orders one step at a time.
+   * Called every 30 seconds from server.ts.  This is the ONLY place that
+   * creates order-progression notifications to prevent duplicates.
    */
   async progressActiveOrders() {
     try {
       const now = new Date();
-      // Find orders that are not delivered or cancelled
       const activeOrders = await Order.find({
-        status: { $in: ['placed', 'confirmed', 'preparing', 'on_the_way'] }
+        status: { $in: ['placed', 'confirmed', 'preparing', 'on_the_way'] },
       });
 
       for (const order of activeOrders) {
-        const elapsedMs = now.getTime() - order.createdAt.getTime();
-        const elapsedMinutes = elapsedMs / (60 * 1000);
-
-        let newStatus: typeof order.status | null = null;
-        let notificationTitle = '';
-        let notificationMsg = '';
-
-        if (order.status === 'placed' && elapsedMinutes >= 1) {
-          newStatus = 'confirmed';
-          notificationTitle = 'Order Confirmed! 👨‍🍳';
-          notificationMsg = `Your order #${order._id.toString().slice(-6)} has been confirmed by the restaurant.`;
-        } else if (order.status === 'confirmed' && elapsedMinutes >= 3) {
-          newStatus = 'preparing';
-          notificationTitle = 'Preparing Meal 🍲';
-          notificationMsg = `The kitchen is preparing your order #${order._id.toString().slice(-6)}.`;
-        } else if (order.status === 'preparing' && elapsedMinutes >= 10) {
-          newStatus = 'on_the_way';
-          notificationTitle = 'Order Dispatched! 🛵';
-          notificationMsg = `Our delivery partner Ramesh Kumar is en route with your order.`;
-        } else if (order.status === 'on_the_way' && elapsedMinutes >= 20) {
-          newStatus = 'delivered';
-          notificationTitle = 'Order Delivered! 🎉';
-          notificationMsg = `Your order #${order._id.toString().slice(-6)} has been delivered. Enjoy your meal!`;
-        }
+        const elapsedMinutes = (now.getTime() - order.createdAt.getTime()) / 60000;
+        const newStatus = nextStatus(order.status, elapsedMinutes);
 
         if (newStatus) {
-          order.status = newStatus;
-          if (newStatus === 'delivered') {
-            order.isPaid = true; // Mark as paid upon delivery
-          }
+          order.status = newStatus as typeof order.status;
+          if (newStatus === 'delivered') order.isPaid = true;
           await order.save();
-          logger.info(`Order #${order._id} status progressed to: ${newStatus}`);
+          logger.info(`Order #${order._id} → ${newStatus}`);
 
-          // Create notification
-          await Notification.create({
-            userId: order.userId,
-            title: notificationTitle,
-            message: notificationMsg,
-            type: 'order',
-            isRead: false,
-          });
+          const shortId = order._id.toString().slice(-6);
+          const copy = STEP_COPY[newStatus];
+          if (copy) {
+            await notificationDispatcher.dispatch({
+              userId: order.userId,
+              title: copy.title,
+              body: copy.body(shortId),
+              type: 'info',
+              category: 'orders',
+              data: {
+                type: 'order_update',
+                order_id: order._id.toString(),
+              },
+            });
+          }
         }
       }
     } catch (error) {
@@ -64,9 +77,8 @@ class OrderProgressionService {
   }
 
   /**
-   * Run progression updates on an order whenever it's requested.
-   * This guarantees status updates are immediately visible to users checking details,
-   * even if the background interval has not fired yet.
+   * On-demand progression for a single order — only updates the DB status,
+   * NO notification created here to avoid duplicates with the interval job.
    */
   async progressSingleOrder(order: any): Promise<any> {
     if (!order || ['delivered', 'cancelled'].includes(order.status)) {
@@ -74,68 +86,28 @@ class OrderProgressionService {
     }
 
     const now = new Date();
-    const elapsedMs = now.getTime() - order.createdAt.getTime();
-    const elapsedMinutes = elapsedMs / (60 * 1000);
+    const elapsedMinutes = (now.getTime() - order.createdAt.getTime()) / 60000;
 
-    let statusUpdated = false;
-    let currentStatus = order.status;
+    // Cascade through all thresholds to find the final status
+    let current = order.status;
+    let changed = false;
 
-    // Sequential cascade progression checks
-    if (currentStatus === 'placed' && elapsedMinutes >= 1) {
-      currentStatus = 'confirmed';
-      statusUpdated = true;
-    }
-    if (currentStatus === 'confirmed' && elapsedMinutes >= 3) {
-      currentStatus = 'preparing';
-      statusUpdated = true;
-    }
-    if (currentStatus === 'preparing' && elapsedMinutes >= 10) {
-      currentStatus = 'on_the_way';
-      statusUpdated = true;
-    }
-    if (currentStatus === 'on_the_way' && elapsedMinutes >= 20) {
-      currentStatus = 'delivered';
-      statusUpdated = true;
+    const steps = ['placed', 'confirmed', 'preparing', 'on_the_way', 'delivered'];
+    for (const _ of steps) {
+      const n = nextStatus(current, elapsedMinutes);
+      if (!n) break;
+      current = n;
+      changed = true;
     }
 
-    if (statusUpdated) {
+    if (changed) {
       const oldStatus = order.status;
-      order.status = currentStatus;
-      if (currentStatus === 'delivered') {
-        order.isPaid = true;
-      }
+      order.status = current;
+      if (current === 'delivered') order.isPaid = true;
       await order.save();
-      logger.info(`Order #${order._id} dynamically progressed from ${oldStatus} to ${currentStatus} during fetch.`);
-
-      // Create notification for each dynamic step passed
-      const orderShortId = order._id.toString().slice(-6);
-      const notifications = [];
-      if (oldStatus === 'placed' && elapsedMinutes >= 1) {
-        notifications.push({ title: 'Order Confirmed! 👨‍🍳', msg: `Your order #${orderShortId} has been confirmed.` });
-      }
-      if (oldStatus === 'placed' || oldStatus === 'confirmed') {
-        if (elapsedMinutes >= 3) {
-          notifications.push({ title: 'Preparing Meal 🍲', msg: `The kitchen is preparing your order #${orderShortId}.` });
-        }
-      }
-      if (oldStatus === 'placed' || oldStatus === 'confirmed' || oldStatus === 'preparing') {
-        if (elapsedMinutes >= 10) {
-          notifications.push({ title: 'Order Dispatched! 🛵', msg: `Our delivery partner Ramesh Kumar is en route with your order.` });
-        }
-      }
-      if (elapsedMinutes >= 20) {
-        notifications.push({ title: 'Order Delivered! 🎉', msg: `Your order #${orderShortId} has been delivered. Enjoy your meal!` });
-      }
-
-      for (const n of notifications) {
-        await Notification.create({
-          userId: order.userId,
-          title: n.title,
-          message: n.msg,
-          type: 'order',
-          isRead: false,
-        });
-      }
+      logger.info(
+        `Order #${order._id} dynamically progressed ${oldStatus} → ${current} on fetch (no notification — interval handles that)`
+      );
     }
 
     return order;

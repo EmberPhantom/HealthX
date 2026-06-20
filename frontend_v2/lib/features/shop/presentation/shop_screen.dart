@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/custom_card.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
 import '../../../shared/widgets/status_badge.dart';
+import '../../../shared/widgets/error_view.dart';
 import '../providers/subscription_provider.dart';
 import '../../../core/models/subscription_models.dart';
+import '../providers/shop_provider.dart';
+import '../../../core/models/shop_models.dart';
 
 class ShopScreen extends ConsumerStatefulWidget {
   const ShopScreen({super.key});
@@ -17,82 +23,10 @@ class ShopScreen extends ConsumerStatefulWidget {
 }
 
 class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAliveClientMixin {
-  int _cartCount = 0;
+  String _selectedCategory = 'All';
 
   @override
   bool get wantKeepAlive => true;
-  double _cartTotal = 0.0;
-
-  void _addToCart(double price, String name) {
-    setState(() {
-      _cartCount++;
-      _cartTotal += price;
-    });
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$name added to cart!'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
-  void _checkoutCart() {
-    if (_cartCount == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your cart is empty. Add items first!'), backgroundColor: Colors.orange),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          title: const Text('Checkout Cart', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Items in Cart: $_cartCount', style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text('Total Price: ₹${_cartTotal.toInt()}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.secondary)),
-              const SizedBox(height: 12),
-              const Text('This is a mock transaction. No money will be charged.', style: TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic)),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL', style: TextStyle(color: AppColors.neutral)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.secondary,
-              ),
-              onPressed: () {
-                setState(() {
-                  _cartCount = 0;
-                  _cartTotal = 0.0;
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Order placed successfully! Thank you for shopping.'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              child: const Text('PLACE ORDER'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   Future<void> _checkoutPlan(BuildContext context, WidgetRef ref, String planId, double price, String planName) async {
     showDialog(
@@ -111,7 +45,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
               const SizedBox(height: 8),
               Text('Price: ₹${price.toInt()} / month', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               const SizedBox(height: 12),
-              const Text('This is a mock transaction. No real money will be charged.', style: TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic)),
+              const Text('Demo mode — no real payment will be processed.', style: TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic)),
             ],
           ),
           actions: [
@@ -195,7 +129,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
               onPressed: () async {
-                final success = await ref.read(subscriptionProvider.notifier).cancel(id); // Use cancel as pause mock
+                final success = await ref.read(subscriptionProvider.notifier).pause(id);
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -214,176 +148,114 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
     );
   }
 
-  Widget _buildCategoryCard({
-    required BuildContext context,
-    required String title,
-    required String imageUrl,
-    bool isArrow = false,
-  }) {
-    if (isArrow) {
-      return Container(
+  Widget _buildProductCard(BuildContext context, ShopProduct product) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        context.push('/shop/product/${product.id}');
+      },
+      child: Container(
+        width: 170,
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
+          color: AppColors.tertiary,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border, width: 0.5),
         ),
-        child: InkWell(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('All categories are displayed.'), duration: Duration(milliseconds: 700)),
-            );
-          },
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                PhosphorIconsRegular.arrowRight,
-                color: AppColors.secondary,
-                size: 28,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'VIEW ALL',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontSize: 10,
-                      color: AppColors.textPrimary,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        image: DecorationImage(
-          image: NetworkImage(imageUrl),
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withValues(alpha: 0.1),
-              Colors.black.withValues(alpha: 0.6),
-            ],
-          ),
-        ),
-        padding: const EdgeInsets.all(12),
-        alignment: Alignment.bottomLeft,
-        child: Text(
-          title.toUpperCase(),
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-                letterSpacing: 0.5,
-              ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductCard({
-    required BuildContext context,
-    required String name,
-    required String size,
-    required double price,
-    required String imageUrl,
-    bool isBestseller = false,
-  }) {
-    return Container(
-      width: 170,
-      decoration: BoxDecoration(
-        color: AppColors.tertiary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  image: DecorationImage(
-                    image: NetworkImage(imageUrl),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              if (isBestseller)
-                const Positioned(
-                  top: 8,
-                  left: 8,
-                  child: StatusBadge(
-                    text: 'BESTSELLER',
-                    dotColor: AppColors.secondary,
-                    backgroundColor: AppColors.primary,
-                    textColor: AppColors.secondary,
-                  ),
-                ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
               children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      ),
+                Container(
+                  height: 110,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    color: AppColors.primary.withValues(alpha: 0.05),
+                    image: product.imageUrl.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(product.imageUrl),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: product.imageUrl.isEmpty
+                      ? Center(child: Text(product.emoji, style: const TextStyle(fontSize: 48)))
+                      : null,
                 ),
-                Text(
-                  size,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontSize: 12,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '₹${price.toInt()}',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                          ),
+                if (product.rating >= 4.8)
+                  const Positioned(
+                    top: 8,
+                    left: 8,
+                    child: StatusBadge(
+                      text: 'BESTSELLER',
+                      dotColor: AppColors.secondary,
+                      backgroundColor: AppColors.primary,
+                      textColor: AppColors.secondary,
                     ),
-                    GestureDetector(
-                      onTap: () => _addToCart(price, name),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.secondary, width: 1.0),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.add, size: 18, color: AppColors.secondary),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
               ],
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                  ),
+                  Text(
+                    '${product.calories} kcal • ${product.isVeg ? 'Veg' : 'Non-Veg'}',
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₹${product.price.toInt()}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ref.read(shopProvider.notifier).addToCart(product.id);
+                          ScaffoldMessenger.of(context).clearSnackBars();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${product.name} added to cart!'),
+                              backgroundColor: AppColors.success,
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.secondary, width: 1.0),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.add, size: 16, color: AppColors.secondary),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -433,7 +305,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
             sub.planName.toUpperCase(),
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w900,
-                  fontSize: 22,
+                  fontSize: 20,
                 ),
           ),
           const SizedBox(height: 4),
@@ -510,7 +382,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
             children: [
               Text(
                 planName.toUpperCase(),
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
               ),
               if (isActiveThisPlan)
                 const StatusBadge(
@@ -531,7 +403,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
           const SizedBox(height: 8),
           Text(
             '₹${price.toInt()} / month',
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppColors.secondary),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: AppColors.secondary),
           ),
           const SizedBox(height: 12),
           ...features.map((f) => Padding(
@@ -566,11 +438,25 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
     super.build(context);
     final subState = ref.watch(subscriptionProvider);
     final activeSub = subState.activeSubscription;
+    final subscriptionPlansAsync = ref.watch(subscriptionPlansProvider);
+
+    final shopState = ref.watch(shopProvider);
+    final cartCount = shopState.cartCount;
+    final cartTotal = shopState.cartSubtotal;
+
+    // Filter products dynamically
+    final filteredProducts = shopState.products.where((p) {
+      if (_selectedCategory == 'All') return true;
+      return p.category.toLowerCase() == _selectedCategory.toLowerCase();
+    }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       floatingActionButton: FloatingActionButton(
-        onPressed: _checkoutCart,
+        onPressed: () {
+          HapticFeedback.lightImpact();
+          context.push('/shop/cart');
+        },
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.secondary,
         shape: RoundedRectangleBorder(
@@ -578,23 +464,26 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
           side: const BorderSide(color: AppColors.secondary, width: 1.5),
         ),
         child: Badge(
-          label: Text('$_cartCount'),
-          isLabelVisible: _cartCount > 0,
+          label: Text('$cartCount'),
+          isLabelVisible: cartCount > 0,
           child: const Icon(
             PhosphorIconsRegular.shoppingCart,
             size: 26,
           ),
         ),
       ),
-      body: subState.isLoading && subState.subscriptions.isEmpty
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
-              ),
-            )
-          : RefreshIndicator(
+      body: shopState.isLoading && shopState.products.isEmpty
+          ? _buildShimmer()
+          : shopState.error != null && shopState.products.isEmpty
+              ? ErrorView(
+                  message: shopState.error!,
+                  onRetry: () => ref.read(shopProvider.notifier).fetchCatalog(),
+                )
+              : RefreshIndicator(
               onRefresh: () async {
                 await ref.read(subscriptionProvider.notifier).fetchSubscriptions();
+                await ref.read(shopProvider.notifier).fetchCatalog();
+                ref.invalidate(subscriptionPlansProvider);
               },
               color: AppColors.primary,
               child: SingleChildScrollView(
@@ -619,20 +508,128 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Fuel your performance.',
+                                'Fuel your performance and recovery.',
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                             ],
                           ),
                         ),
-                        Text(
-                          '₹${_cartTotal.toStringAsFixed(2)}',
-                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 22,
-                              ),
+                        if (cartTotal > 0)
+                          Text(
+                            '₹${cartTotal.toInt()}',
+                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 20,
+                                ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Shop Shortcuts
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildShortcutCard(
+                            context,
+                            icon: PhosphorIconsRegular.bowlSteam,
+                            label: 'Menu',
+                            color: const Color(0xFFE8F5E9),
+                            onTap: () => context.push('/shop/menu'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildShortcutCard(
+                            context,
+                            icon: PhosphorIconsRegular.sparkle,
+                            label: 'Snacks',
+                            color: const Color(0xFFEFF6FF),
+                            onTap: () => context.push('/shop/ready-to-eat'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildShortcutCard(
+                            context,
+                            icon: PhosphorIconsRegular.calendar,
+                            label: 'Meal Plans',
+                            color: const Color(0xFFFFF7ED),
+                            onTap: () => context.push('/shop/meal-plan'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildShortcutCard(
+                            context,
+                            icon: PhosphorIconsRegular.heart,
+                            label: 'Liked',
+                            color: const Color(0xFFFFF1F2),
+                            onTap: () => context.push('/shop/favorites'),
+                          ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Custom Bowl Builder Banner
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        context.push('/shop/custom-bowl');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                PhosphorIconsRegular.bowlFood,
+                                color: AppColors.primary,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text(
+                                    'Build Your Custom Bowl',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Pick your base, protein, veggies, and dressings. Calculated live!',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              PhosphorIconsRegular.arrowRight,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
 
@@ -642,190 +639,215 @@ class _ShopScreenState extends ConsumerState<ShopScreen> with AutomaticKeepAlive
                       const SizedBox(height: 20),
                     ],
 
-                    // Featured Card Banner
-                    Container(
-                      height: 160,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        image: const DecorationImage(
-                          image: NetworkImage('https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?fit=crop&w=400&h=200'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.8),
-                              Colors.black.withValues(alpha: 0.2),
-                            ],
-                          ),
-                        ),
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'FEATURED',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0,
-                                fontSize: 11,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Premium Subscriptions',
-                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            PrimaryButton(
-                              text: 'VIEW OPTIONS BELOW',
-                              isFullWidth: false,
-                              height: 36,
-                              onPressed: () {},
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
                     // Subscription Plans Section
                     Text(
                       'SUBSCRIPTION PLANS',
                       style: Theme.of(context).textTheme.labelLarge,
                     ),
                     const SizedBox(height: 12),
-                    _buildPlanCard(
-                      context: context,
-                      ref: ref,
-                      planId: 'basic',
-                      planName: 'Basic Plan',
-                      price: 499,
-                      features: const [
-                        'Daily step and sleep log tracking',
-                        'Basic health analytics report',
-                        '1 doctor consultation per month',
-                      ],
-                      activeSub: activeSub,
+                    subscriptionPlansAsync.when(
+                      data: (plans) {
+                        return Column(
+                          children: [
+                            ...plans.map((plan) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
+                                child: _buildPlanCard(
+                                  context: context,
+                                  ref: ref,
+                                  planId: plan.planId,
+                                  planName: plan.planName,
+                                  price: plan.price,
+                                  features: plan.features,
+                                  isBestseller: plan.isBestseller,
+                                  activeSub: activeSub,
+                                ),
+                              );
+                            }),
+                          ],
+                        );
+                      },
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24.0),
+                        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                      ),
+                      error: (err, stack) => ErrorView(
+                        message: 'Error loading plans: $err',
+                        onRetry: () => ref.invalidate(subscriptionPlansProvider),
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    _buildPlanCard(
-                      context: context,
-                      ref: ref,
-                      planId: 'pro',
-                      planName: 'Pro Plan',
-                      price: 999,
-                      features: const [
-                        'Advanced glucose and metrics logging',
-                        'Detailed trend analysis charts',
-                        'Unlimited doctor consult bookings',
-                        'Priority support queue access',
-                      ],
-                      isBestseller: true,
-                      activeSub: activeSub,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildPlanCard(
-                      context: context,
-                      ref: ref,
-                      planId: 'elite',
-                      planName: 'Elite Plan',
-                      price: 1999,
-                      features: const [
-                        'Personal nutritionist and wellness coach',
-                        '24/7 priority emergency doctor helpline',
-                        'Monthly customized supplement box delivery',
-                        'Complete health panel reviews',
-                      ],
-                      activeSub: activeSub,
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
-                    // Categories Section
-                    Text(
+                    // Category Filters Row
+                    const Text(
                       'PRODUCT CATEGORIES',
-                      style: Theme.of(context).textTheme.labelLarge,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
                     ),
-                    const SizedBox(height: 12),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.25,
-                      children: [
-                        _buildCategoryCard(
-                          context: context,
-                          title: 'Daily Meals',
-                          imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?fit=crop&w=150&h=100',
-                        ),
-                        _buildCategoryCard(
-                          context: context,
-                          title: 'Healthy Breakfast',
-                          imageUrl: 'https://images.unsplash.com/photo-1497534446932-c925b458314e?fit=crop&w=150&h=100',
-                        ),
-                        _buildCategoryCard(
-                          context: context,
-                          title: 'Snacks & Treats',
-                          imageUrl: 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?fit=crop&w=150&h=100',
-                        ),
-                        _buildCategoryCard(
-                          context: context,
-                          title: 'View All',
-                          imageUrl: '',
-                          isArrow: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Trending Now Section
-                    Text(
-                      'TRENDING NOW',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     SizedBox(
-                      height: 220,
+                      height: 38,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         children: [
-                          _buildProductCard(
-                            context: context,
-                            name: 'Whey Isolate Pro',
-                            size: '30 Servings',
-                            price: 2499,
-                            imageUrl: 'https://images.unsplash.com/photo-1579758629938-03607ccdbaba?fit=crop&w=150&h=120',
-                            isBestseller: true,
-                          ),
-                          const SizedBox(width: 16),
-                          _buildProductCard(
-                            context: context,
-                            name: 'Keto Energy Bars',
-                            size: 'Box of 12',
-                            price: 899,
-                            imageUrl: 'https://images.unsplash.com/photo-1568254183919-78a4f43a2877?fit=crop&w=150&h=120',
-                          ),
-                          const SizedBox(width: 16),
+                          _buildCategoryChip('All'),
+                          ...shopState.categories.map((cat) => _buildCategoryChip(cat)),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 20),
+
+                    // Catalog items section
+                    Text(
+                      _selectedCategory == 'All' ? 'HEALTHY FOODS & SUPPLEMENTS' : '${_selectedCategory.toUpperCase()} ITEMS',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    if (filteredProducts.isEmpty)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24.0),
+                          child: Text('No products found in this category.', style: TextStyle(color: AppColors.neutral)),
+                        ),
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.82,
+                        ),
+                        itemCount: filteredProducts.length,
+                        itemBuilder: (context, index) {
+                          final prod = filteredProducts[index];
+                          return _buildProductCard(context, prod);
+                        },
+                      ),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildShimmer() {
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ShimmerLoading(height: 28, width: 80),
+          const SizedBox(height: 6),
+          const ShimmerLoading(height: 16, width: 200),
+          const SizedBox(height: 24),
+          const ShimmerLoading(height: 120),
+          const SizedBox(height: 20),
+          const ShimmerLoading(height: 16, width: 140),
+          const SizedBox(height: 12),
+          const ShimmerLoading(height: 120),
+          const SizedBox(height: 16),
+          const ShimmerLoading(height: 120),
+          const SizedBox(height: 24),
+          const ShimmerLoading(height: 16, width: 160),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 38,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: List.generate(5, (_) => const Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: ShimmerLoading(width: 70, height: 38, borderRadius: 20),
+              )),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const ShimmerLoading(height: 16, width: 180),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.82,
+            ),
+            itemCount: 4,
+            itemBuilder: (_, __) => const ShimmerLoading(height: 180, borderRadius: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip(String categoryName) {
+    final isSelected = _selectedCategory == categoryName;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: ChoiceChip(
+        label: Text(categoryName),
+        selected: isSelected,
+        selectedColor: AppColors.primary,
+        backgroundColor: Colors.grey.shade100,
+        labelStyle: TextStyle(
+          color: isSelected ? AppColors.secondary : AppColors.textPrimary,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+        onSelected: (val) {
+          if (val) {
+            setState(() => _selectedCategory = categoryName);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildShortcutCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border, width: 0.5),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: AppColors.secondary, size: 20),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.secondary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

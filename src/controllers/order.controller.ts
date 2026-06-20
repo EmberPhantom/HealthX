@@ -1,10 +1,9 @@
 import { Response } from 'express';
 import Order from '../models/Order';
-import User from '../models/User';
-import Notification from '../models/Notification';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { AppError } from '../utils/AppError';
+import notificationDispatcher from '../services/notification.service';
 
 export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => {
   if (!req.user) {
@@ -52,16 +51,14 @@ export const placeOrder = catchAsync(async (req: AuthRequest, res: Response) => 
     estimatedDelivery,
   });
 
-  // Increment user's order stats
-  await User.findByIdAndUpdate(req.user.userId, { $inc: { totalOrders: 1 } });
-
-  // Create notifications
-  await Notification.create({
+  // Push notification
+  await notificationDispatcher.dispatch({
     userId: req.user.userId,
     title: 'Order Placed! 🎉',
-    message: `Your order #${order._id.toString().slice(-6)} has been placed.`,
-    type: 'order',
-    isRead: false,
+    body: `Your order #${order._id.toString().slice(-6)} has been placed. Estimated delivery: 35 mins.`,
+    type: 'success',
+    category: 'orders',
+    data: { type: 'order_update', order_id: order._id.toString() },
   });
 
   res.status(201).json({
@@ -79,7 +76,7 @@ export const getOrders = catchAsync(async (req: AuthRequest, res: Response) => {
   let orders = await Order.find({ userId: req.user.userId }).sort({ createdAt: -1 });
 
   // Progress orders dynamically on fetch to ensure live updates
-  const { default: orderProgressionService } = await import('../services/orderProgression.service');
+  const { default: orderProgressionService } = await import('../services/order-progression.service');
   orders = await Promise.all(orders.map(o => orderProgressionService.progressSingleOrder(o)));
 
   res.status(200).json({
@@ -101,7 +98,7 @@ export const getOrder = catchAsync(async (req: AuthRequest, res: Response) => {
   }
 
   // Progress single order dynamically on fetch
-  const { default: orderProgressionService } = await import('../services/orderProgression.service');
+  const { default: orderProgressionService } = await import('../services/order-progression.service');
   order = await orderProgressionService.progressSingleOrder(order);
 
   res.status(200).json({
@@ -132,13 +129,14 @@ export const cancelOrder = catchAsync(async (req: AuthRequest, res: Response) =>
     throw new AppError('Order cannot be cancelled or was not found', 400);
   }
 
-  // Create notification
-  await Notification.create({
+  // Push notification
+  await notificationDispatcher.dispatch({
     userId: req.user.userId,
     title: 'Order Cancelled 🚫',
-    message: `Your order #${order._id.toString().slice(-6)} has been cancelled.`,
-    type: 'order',
-    isRead: false,
+    body: `Your order #${order._id.toString().slice(-6)} has been cancelled.`,
+    type: 'error',
+    category: 'orders',
+    data: { type: 'order_update', order_id: order._id.toString() },
   });
 
   res.status(200).json({
@@ -158,7 +156,7 @@ export const getOrderStatus = catchAsync(async (req: AuthRequest, res: Response)
     throw new AppError('Order not found', 404);
   }
 
-  const { default: orderProgressionService } = await import('../services/orderProgression.service');
+  const { default: orderProgressionService } = await import('../services/order-progression.service');
   const progressedOrder = await orderProgressionService.progressSingleOrder(order);
   if (!progressedOrder) {
     throw new AppError('Order not found', 404);

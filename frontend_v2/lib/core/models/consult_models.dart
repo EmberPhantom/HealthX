@@ -63,13 +63,13 @@ class Doctor extends Equatable {
       id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
       specialty: json['specialty'] ?? '',
-      qualification: json['qualification'] ?? '',
+      qualification: json['qualification'] ?? json['qual'] ?? '',
       experience: json['experience'] ?? 0,
-      consultationFee: (json['consultationFee'] as num?)?.toDouble() ?? 0.0,
+      consultationFee: ((json['consultationFee'] ?? json['fee'] ?? 0.0) as num).toDouble(),
       rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
       reviewCount: json['reviewCount'] ?? 0,
       avatarUrl: json['avatarUrl'],
-      clinicName: json['clinicName'] ?? '',
+      clinicName: json['clinicName'] ?? json['clinic'] ?? '',
       address: json['address'] ?? '',
       city: json['city'] ?? '',
       languages: List<String>.from(json['languages'] ?? []),
@@ -134,11 +134,17 @@ class Appointment extends Equatable {
   factory Appointment.fromJson(Map<String, dynamic> json) {
     Doctor? doctorObj;
     String docId = '';
-    if (json['doctorId'] is Map<String, dynamic>) {
-      doctorObj = Doctor.fromJson(json['doctorId']);
+    final doctorIdRaw = json['doctorId'];
+    final doctorRaw = json['doctor'];
+    if (doctorIdRaw is Map<String, dynamic>) {
+      doctorObj = Doctor.fromJson(doctorIdRaw);
       docId = doctorObj.id;
-    } else if (json['doctorId'] is String) {
-      docId = json['doctorId'];
+    } else if (doctorIdRaw is String) {
+      docId = doctorIdRaw;
+    }
+    if (doctorObj == null && doctorRaw is Map<String, dynamic>) {
+      doctorObj = Doctor.fromJson(doctorRaw);
+      if (docId.isEmpty) docId = doctorObj.id;
     }
 
     return Appointment(
@@ -146,14 +152,14 @@ class Appointment extends Equatable {
       doctorId: docId,
       doctor: doctorObj,
       appointmentDate: json['appointmentDate'] != null
-          ? DateTime.parse(json['appointmentDate']).toLocal()
+          ? DateTime.tryParse(json['appointmentDate'])?.toLocal() ?? DateTime.now()
           : DateTime.now(),
       timeSlot: json['timeSlot'] ?? '',
       type: json['type'] ?? 'in-person',
       status: json['status'] ?? 'pending',
       symptoms: json['symptoms'],
       notes: json['notes'],
-      consultationFee: (json['consultationFee'] as num?)?.toDouble() ?? 0.0,
+      consultationFee: ((json['consultationFee'] ?? 0.0) as num).toDouble(),
       isPaid: json['isPaid'] ?? false,
     );
   }

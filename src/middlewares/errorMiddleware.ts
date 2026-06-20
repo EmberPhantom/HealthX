@@ -43,12 +43,16 @@ export const errorMiddleware = (
 
   // Handle AppError (operational errors)
   if (err instanceof AppError && err.isOperational) {
-    res.status(err.statusCode).json({
+    const body: Record<string, any> = {
       statusCode: err.statusCode,
       status: 'fail',
       message: err.message,
       timestamp: new Date().toISOString(),
-    });
+    };
+    if (err.details) {
+      body.errors = err.details;
+    }
+    res.status(err.statusCode).json(body);
     return;
   }
 

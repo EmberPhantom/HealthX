@@ -38,3 +38,30 @@ export const getMenuItems = catchAsync(async (req: Request, res: Response) => {
     data: menuItems,
   });
 });
+
+export const getSubscriptionPlans = catchAsync(async (req: Request, res: Response) => {
+  const plans = await contentService.getSubscriptionPlans();
+  res.status(200).json({
+    statusCode: 200,
+    status: 'success',
+    data: plans,
+  });
+});
+
+export const getRewardTasks = catchAsync(async (req: Request, res: Response) => {
+  const tasks = await contentService.getRewardTasks();
+  res.status(200).json({
+    statusCode: 200,
+    status: 'success',
+    data: tasks,
+  });
+});
+
+export const getSupportInfo = catchAsync(async (req: Request, res: Response) => {
+  const support = await contentService.getSupportInfo();
+  res.status(200).json({
+    statusCode: 200,
+    status: 'success',
+    data: support,
+  });
+});

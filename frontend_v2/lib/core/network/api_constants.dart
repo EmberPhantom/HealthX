@@ -65,6 +65,8 @@ class AuthEndpoints {
   static const String uploadProfilePicture = '/auth/me/upload-picture';
   static const String linkOAuthProvider = '/auth/link';
   static const String unlinkOAuthProvider = '/auth/unlink';
+  static const String forgotPassword = '/auth/forgot-password';
+  static const String resetPassword = '/auth/reset-password';
 }
 
 class OnboardingEndpoints {
@@ -94,6 +96,14 @@ class TrackerEndpoints {
   static const String measurements = '/trackers/measurements';
 }
 
+class MealEndpoints {
+  static const String log = '/meals/log';
+  static const String getMeals = '/meals';
+  static String delete(String id) => '/meals/$id';
+  static const String identify = '/meals/identify';
+  static const String identifyImage = '/meals/identify-image';
+}
+
 class DoctorEndpoints {
   static const String getDoctors = '/doctors';
   static String getDoctor(String id) => '/doctors/$id';
@@ -104,6 +114,16 @@ class AppointmentEndpoints {
   static const String base = '/appointments';
   static String getAppointment(String id) => '/appointments/$id';
   static String cancelAppointment(String id) => '/appointments/$id';
+  static String rescheduleAppointment(String id) => '/appointments/$id/reschedule';
+}
+
+class ChatEndpoints {
+  static String getMessages(String appointmentId) => '/chats/$appointmentId/messages';
+  static String sendMessage(String appointmentId) => '/chats/$appointmentId/messages';
+}
+
+class PrescriptionEndpoints {
+  static String getPrescription(String appointmentId) => '/prescriptions/$appointmentId';
 }
 
 class SubscriptionEndpoints {
@@ -112,6 +132,14 @@ class SubscriptionEndpoints {
   static String pause(String id) => '/subscriptions/pause/$id';
   static String cancel(String id) => '/subscriptions/cancel/$id';
   static const String me = '/subscriptions/me';
+}
+
+class AIHealthEndpoints {
+  static const String step5Questions = '/ai-health/step5-questions';
+  static const String submitAnalysis = '/ai-health/analyze';
+  static const String profile = '/ai-health/profile';
+  static const String profileStatus = '/ai-health/profile/status';
+  static const String mealWarning = '/ai-health/meal-warning';
 }
 
 class TokenConfig {

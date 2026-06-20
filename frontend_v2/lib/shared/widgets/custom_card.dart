@@ -7,6 +7,7 @@ class CustomCard extends StatelessWidget {
   final Color? backgroundColor;
   final double borderRadius;
   final BorderSide? borderSide;
+  final bool clip;
 
   const CustomCard({
     super.key,
@@ -15,10 +16,23 @@ class CustomCard extends StatelessWidget {
     this.backgroundColor,
     this.borderRadius = 16.0,
     this.borderSide,
+    this.clip = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    Widget cardChild = Padding(
+      padding: padding ?? const EdgeInsets.all(16.0),
+      child: child,
+    );
+
+    if (clip) {
+      cardChild = ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: cardChild,
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: backgroundColor ?? AppColors.cardBackground,
@@ -34,13 +48,7 @@ class CustomCard extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: Padding(
-          padding: padding ?? const EdgeInsets.all(16.0),
-          child: child,
-        ),
-      ),
+      child: cardChild,
     );
   }
 }

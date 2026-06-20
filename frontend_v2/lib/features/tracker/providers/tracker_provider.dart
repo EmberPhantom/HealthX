@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/tracker_service.dart';
 import '../../../core/models/tracker_models.dart';
 import '../../../core/services/step_counter_service.dart';
+import '../../../core/services/water_tracker_service.dart';
+import '../../../core/services/sleep_tracker_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import 'package:intl/intl.dart';
 
 class TrackerState {
@@ -13,6 +16,15 @@ class TrackerState {
   final List<GlucoseLog> glucoseLogs;
   final bool isLoading;
   final String? error;
+  final int waterPage;
+  final bool hasMoreWater;
+  final int sleepPage;
+  final bool hasMoreSleep;
+  final int stepPage;
+  final bool hasMoreStep;
+  final int glucosePage;
+  final bool hasMoreGlucose;
+  final bool isLoadingMore;
 
   const TrackerState({
     this.waterLogs = const [],
@@ -21,6 +33,15 @@ class TrackerState {
     this.glucoseLogs = const [],
     this.isLoading = false,
     this.error,
+    this.waterPage = 1,
+    this.hasMoreWater = true,
+    this.sleepPage = 1,
+    this.hasMoreSleep = true,
+    this.stepPage = 1,
+    this.hasMoreStep = true,
+    this.glucosePage = 1,
+    this.hasMoreGlucose = true,
+    this.isLoadingMore = false,
   });
 
   int get todayWaterAmount {
@@ -54,6 +75,15 @@ class TrackerState {
     List<GlucoseLog>? glucoseLogs,
     bool? isLoading,
     String? error,
+    int? waterPage,
+    bool? hasMoreWater,
+    int? sleepPage,
+    bool? hasMoreSleep,
+    int? stepPage,
+    bool? hasMoreStep,
+    int? glucosePage,
+    bool? hasMoreGlucose,
+    bool? isLoadingMore,
   }) {
     return TrackerState(
       waterLogs: waterLogs ?? this.waterLogs,
@@ -62,6 +92,15 @@ class TrackerState {
       glucoseLogs: glucoseLogs ?? this.glucoseLogs,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
+      waterPage: waterPage ?? this.waterPage,
+      hasMoreWater: hasMoreWater ?? this.hasMoreWater,
+      sleepPage: sleepPage ?? this.sleepPage,
+      hasMoreSleep: hasMoreSleep ?? this.hasMoreSleep,
+      stepPage: stepPage ?? this.stepPage,
+      hasMoreStep: hasMoreStep ?? this.hasMoreStep,
+      glucosePage: glucosePage ?? this.glucosePage,
+      hasMoreGlucose: hasMoreGlucose ?? this.hasMoreGlucose,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     );
   }
 }
@@ -75,9 +114,13 @@ class TrackerNotifier extends Notifier<TrackerState> {
     ref.onDispose(() {
       _syncTimer?.cancel();
     });
-    Future.microtask(() => fetchAllData());
+    final session = ref.watch(sessionProvider);
+    if (session != null) {
+      Future.microtask(() => fetchAllData());
+    }
     _syncTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       fetchNativeSteps();
+      syncOfflineData();
     });
     return const TrackerState();
   }
@@ -96,6 +139,48 @@ class TrackerNotifier extends Notifier<TrackerState> {
     }
   }
 
+  Future<void> syncOfflineData() async {
+    try {
+      // 1. Sync pending sleep log from native calculations
+      final pendingSleep = await SleepTrackerService.instance.getPendingSleepLog();
+      if (pendingSleep != null) {
+        final bedtime = pendingSleep['bedtime'] as DateTime;
+        final wakeTime = pendingSleep['wakeTime'] as DateTime;
+        final dateKey = pendingSleep['dateKey'] as String;
+
+        try {
+          await _service.logSleep(bedtime, wakeTime, dateKey);
+          await SleepTrackerService.instance.clearPendingSleepLog();
+          debugPrint('✅ Synced offline pending sleep log.');
+        } catch (e) {
+          debugPrint('❌ Syncing offline sleep log failed: $e');
+        }
+      }
+
+      // 2. Sync pending water logs from native quick actions
+      final pendingWaters = await WaterTrackerService.instance.getPendingWaterLogs();
+      if (pendingWaters.isNotEmpty) {
+        bool allSuccess = true;
+        for (final log in pendingWaters) {
+          final amount = log['amount'] as int;
+          final timestamp = log['timestamp'] as DateTime;
+          try {
+            await _service.logWater(amount, timestamp);
+          } catch (e) {
+            allSuccess = false;
+            debugPrint('❌ Syncing offline water log failed: $e');
+          }
+        }
+        if (allSuccess) {
+          await WaterTrackerService.instance.clearPendingWaterLogs();
+          debugPrint('✅ Synced all offline pending water logs.');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ syncOfflineData failed: $e');
+    }
+  }
+
   Future<void> fetchAllData() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -103,6 +188,9 @@ class TrackerNotifier extends Notifier<TrackerState> {
       final start = DateTime(now.year, now.month, now.day - 7);
       final startStr = DateFormat('yyyy-MM-dd').format(start);
       final endStr = DateFormat('yyyy-MM-dd').format(now);
+
+      // Trigger offline synchronization first
+      await syncOfflineData();
 
       await StepCounterService.instance.startService();
       final todayNativeSteps = await StepCounterService.instance.getTodaySteps();
@@ -116,10 +204,10 @@ class TrackerNotifier extends Notifier<TrackerState> {
       }
 
       final results = await Future.wait([
-        _service.getWaterLogs(startDate: start, endDate: now),
-        _service.getSleepLogs(),
-        _service.getStepLogs(startDate: startStr, endDate: endStr),
-        _service.getGlucoseLogs(),
+        _service.getWaterLogs(startDate: start, endDate: now, page: 1, limit: 20),
+        _service.getSleepLogs(page: 1, limit: 30),
+        _service.getStepLogs(startDate: startStr, endDate: endStr, page: 1, limit: 20),
+        _service.getGlucoseLogs(page: 1, limit: 20),
       ]);
 
       final waters = results[0] as List<WaterLog>;
@@ -133,9 +221,75 @@ class TrackerNotifier extends Notifier<TrackerState> {
         stepLogs: steps,
         glucoseLogs: glucoses,
         isLoading: false,
+        waterPage: 1,
+        hasMoreWater: waters.length >= 20,
+        sleepPage: 1,
+        hasMoreSleep: sleeps.length >= 30,
+        stepPage: 1,
+        hasMoreStep: steps.length >= 20,
+        glucosePage: 1,
+        hasMoreGlucose: glucoses.length >= 20,
       );
+
+      // Sync computed today's total water amount back to native shared prefs
+      try {
+        await WaterTrackerService.instance.syncTodayWater(state.todayWaterAmount);
+      } catch (_) {}
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> fetchMoreWater() async {
+    if (state.isLoadingMore || !state.hasMoreWater) return;
+    final nextPage = state.waterPage + 1;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final now = DateTime.now();
+      final start = DateTime(now.year, now.month, now.day - 7);
+      final logs = await _service.getWaterLogs(startDate: start, endDate: now, page: nextPage, limit: 20);
+      state = state.copyWith(
+        waterLogs: [...state.waterLogs, ...logs],
+        waterPage: nextPage,
+        hasMoreWater: logs.length >= 20,
+        isLoadingMore: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingMore: false, error: e.toString());
+    }
+  }
+
+  Future<void> fetchMoreGlucose() async {
+    if (state.isLoadingMore || !state.hasMoreGlucose) return;
+    final nextPage = state.glucosePage + 1;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final logs = await _service.getGlucoseLogs(page: nextPage, limit: 20);
+      state = state.copyWith(
+        glucoseLogs: [...state.glucoseLogs, ...logs],
+        glucosePage: nextPage,
+        hasMoreGlucose: logs.length >= 20,
+        isLoadingMore: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingMore: false, error: e.toString());
+    }
+  }
+
+  Future<void> fetchMoreSleep() async {
+    if (state.isLoadingMore || !state.hasMoreSleep) return;
+    final nextPage = state.sleepPage + 1;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final logs = await _service.getSleepLogs(page: nextPage, limit: 30);
+      state = state.copyWith(
+        sleepLogs: [...state.sleepLogs, ...logs],
+        sleepPage: nextPage,
+        hasMoreSleep: logs.length >= 30,
+        isLoadingMore: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingMore: false, error: e.toString());
     }
   }
 
@@ -147,6 +301,10 @@ class TrackerNotifier extends Notifier<TrackerState> {
         waterLogs: [...state.waterLogs, log],
         isLoading: false,
       );
+      // Sync updated today total back to native shared prefs
+      try {
+        await WaterTrackerService.instance.syncTodayWater(state.todayWaterAmount);
+      } catch (_) {}
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -204,15 +362,38 @@ class TrackerNotifier extends Notifier<TrackerState> {
     }
   }
 
-  Future<bool> addGlucose(int level, String readingType, [String? note]) async {
+  /// Returns the AI inline comment if available, or null.
+  /// The comment is non-null only for users with a complete AI health profile
+  /// and a confirmed diabetes condition.
+  Future<String?> addGlucose(int level, String readingType, [String? note]) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final log = await _service.logGlucose(level, readingType, note);
+      final (log, inlineComment) = await _service.logGlucose(level, readingType, note);
       state = state.copyWith(
         glucoseLogs: [log, ...state.glucoseLogs],
         isLoading: false,
       );
-      return true;
+      return inlineComment;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return null;
+    }
+  }
+
+  Future<bool> deleteGlucose(String id) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final success = await _service.deleteGlucose(id);
+      if (success) {
+        final updatedGlucoses = state.glucoseLogs.where((g) => g.id != id).toList();
+        state = state.copyWith(
+          glucoseLogs: updatedGlucoses,
+          isLoading: false,
+        );
+        return true;
+      }
+      state = state.copyWith(isLoading: false);
+      return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;

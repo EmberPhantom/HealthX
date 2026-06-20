@@ -38,5 +38,7 @@ const PrakritiAssessmentSchema = new Schema<IPrakritiAssessment>(
   { timestamps: true }
 );
 
+PrakritiAssessmentSchema.index({ userId: 1, createdAt: -1 });
+
 const PrakritiAssessment = mongoose.model<IPrakritiAssessment>('PrakritiAssessment', PrakritiAssessmentSchema);
 export default PrakritiAssessment;

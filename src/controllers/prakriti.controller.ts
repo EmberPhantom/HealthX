@@ -252,3 +252,43 @@ export const submitAssessment = catchAsync(async (req: AuthRequest, res: Respons
     }
   });
 });
+
+export const getLatestAssessment = catchAsync(async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    throw new AppError('User not authenticated', 401);
+  }
+
+  const assessment = await PrakritiAssessment.findOne({ userId: req.user.userId })
+    .sort({ createdAt: -1 });
+
+  if (!assessment) {
+    throw new AppError('No assessment found', 404);
+  }
+
+  const dominantDosha = assessment.dominantDosha;
+  const profile = DOSHA_PROFILES[dominantDosha];
+
+  const { vata, pitta, kapha } = assessment.doshaScores;
+  const total = vata + pitta + kapha;
+  const vataPct = total > 0 ? Math.round((vata / total) * 100) : 0;
+  const pittaPct = total > 0 ? Math.round((pitta / total) * 100) : 0;
+  const kaphaPct = total > 0 ? Math.round((kapha / total) * 100) : 0;
+
+  res.status(200).json({
+    statusCode: 200,
+    status: 'success',
+    data: {
+      assessment,
+      dominantDosha,
+      scores: {
+        vata,
+        pitta,
+        kapha,
+        vataPct,
+        pittaPct,
+        kaphaPct,
+      },
+      profile,
+    }
+  });
+});

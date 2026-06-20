@@ -5,6 +5,7 @@ export interface INotification extends Document {
   title: string;
   body: string;
   type: 'info' | 'success' | 'warning' | 'error';
+  category: 'general' | 'orders' | 'appointments' | 'chat' | 'health' | 'promotions';
   isRead: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -19,6 +20,11 @@ const notificationSchema = new Schema<INotification>(
       type: String,
       enum: ['info', 'success', 'warning', 'error'],
       default: 'info'
+    },
+    category: {
+      type: String,
+      enum: ['general', 'orders', 'appointments', 'chat', 'health', 'promotions'],
+      default: 'general',
     },
     isRead: { type: Boolean, default: false },
   },

@@ -18,4 +18,12 @@ class AppColors {
   static const Color success = Color(0xFF00E676);
   static const Color warning = Color(0xFFFFAB00);
   static const Color error = Color(0xFFD32F2F);
+
+  // Tracker accent colors — used across steps/sleep/water/glucose/vitals cards
+  static const Color stepsAccent  = Color(0xFF10B981);
+  static const Color sleepAccent  = Color(0xFF6366F1);
+  static const Color waterAccent  = Color(0xFF3B82F6);
+  static const Color glucoseAccent = Color(0xFFF59E0B);
+  static const Color vitalsAccent  = Color(0xFFEF4444);
+  static const Color rewardsAccent = Color(0xFFFFAB00);
 }

@@ -1,0 +1,8 @@
+# Android Release Keystore Configuration Example
+# Copy this file to 'key.properties' in the same folder and fill in your actual credentials.
+# Make sure 'key.properties' is added to .gitignore so your secrets are never checked in.
+
+storePassword=your_keystore_password_here
+keyPassword=your_key_password_here
+keyAlias=your_key_alias_here
+storeFile=../upload-keystore.jks # Path to your keystore relative to this directory

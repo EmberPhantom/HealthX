@@ -72,6 +72,12 @@ class ApiResponse<T> extends Equatable {
     }
   }
 
+  /// Safely extracts the raw data field from a backend response.
+  /// The backend standard format is: { statusCode, status, message, data }.
+  static dynamic extractData(Map<String, dynamic> json) {
+    return json['data'];
+  }
+
   @override
   List<Object?> get props => [success, data, message, error, statusCode];
 }

@@ -1,5 +1,7 @@
 import { Response } from 'express';
 import Notification from '../models/Notification';
+import User from '../models/User';
+import notificationDispatcher from '../services/notification.service';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { AppError } from '../utils/AppError';
@@ -21,6 +23,24 @@ export const getNotifications = catchAsync(async (req: AuthRequest, res: Respons
     statusCode: 200,
     status: 'success',
     data: notifications,
+  });
+});
+
+/**
+ * GET /notifications/unread-count
+ * Get unread notification count for badge display
+ */
+export const getUnreadCount = catchAsync(async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    throw new AppError('User not authenticated', 401);
+  }
+
+  const count = await notificationDispatcher.getUnreadCount(req.user.userId);
+
+  res.status(200).json({
+    statusCode: 200,
+    status: 'success',
+    data: { count },
   });
 });
 
@@ -51,6 +71,25 @@ export const markAsRead = catchAsync(async (req: AuthRequest, res: Response) => 
 });
 
 /**
+ * PATCH /notifications/read-all
+ * Mark all notifications as read
+ */
+export const markAllRead = catchAsync(async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    throw new AppError('User not authenticated', 401);
+  }
+
+  await notificationDispatcher.markAllRead(req.user.userId);
+
+  res.status(200).json({
+    statusCode: 200,
+    status: 'success',
+    message: 'All notifications marked as read',
+    data: null,
+  });
+});
+
+/**
  * DELETE /notifications/:id
  * Delete a notification
  */
@@ -72,6 +111,49 @@ export const deleteNotification = catchAsync(async (req: AuthRequest, res: Respo
     statusCode: 200,
     status: 'success',
     message: 'Notification deleted successfully',
+    data: null,
+  });
+});
+
+/**
+ * POST /users/me/fcm-token
+ * Register or refresh the FCM device token for the authenticated user
+ */
+export const registerFcmToken = catchAsync(async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    throw new AppError('User not authenticated', 401);
+  }
+
+  const { token } = req.body;
+  if (!token || typeof token !== 'string') {
+    throw new AppError('FCM token is required', 400);
+  }
+
+  await User.findByIdAndUpdate(req.user.userId, { fcmToken: token });
+
+  res.status(200).json({
+    statusCode: 200,
+    status: 'success',
+    message: 'FCM token registered',
+    data: null,
+  });
+});
+
+/**
+ * DELETE /users/me/fcm-token
+ * Remove FCM token on logout so we stop sending pushes to a signed-out device
+ */
+export const removeFcmToken = catchAsync(async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    throw new AppError('User not authenticated', 401);
+  }
+
+  await User.findByIdAndUpdate(req.user.userId, { $unset: { fcmToken: '' } });
+
+  res.status(200).json({
+    statusCode: 200,
+    status: 'success',
+    message: 'FCM token removed',
     data: null,
   });
 });

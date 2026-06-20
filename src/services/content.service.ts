@@ -4,6 +4,28 @@ import Category, { ICategory } from '../models/Category';
 import Banner, { IBanner } from '../models/Banner';
 import logger from '../utils/logger';
 
+export interface ISubscriptionPlan {
+  planId: string;
+  planName: string;
+  price: number;
+  features: string[];
+  isBestseller?: boolean;
+}
+
+export interface IRewardTask {
+  taskId: string;
+  title: string;
+  points: number;
+  target: number;
+  unit: string;
+}
+
+export interface ISupportInfo {
+  email: string;
+  whatsapp: string;
+  faqs: { question: string; answer: string }[];
+}
+
 export class ContentService {
   async getCategories(): Promise<ICategory[]> {
     let categories = await Category.find();
@@ -209,6 +231,77 @@ export class ContentService {
       }
     }
     return items;
+  }
+
+  async getSubscriptionPlans(): Promise<ISubscriptionPlan[]> {
+    return [
+      {
+        planId: 'basic',
+        planName: 'Basic Plan',
+        price: 499,
+        features: [
+          'Daily step and sleep log tracking',
+          'Basic health analytics report',
+          '1 doctor consultation per month'
+        ]
+      },
+      {
+        planId: 'pro',
+        planName: 'Pro Plan',
+        price: 999,
+        features: [
+          'Advanced glucose and metrics logging',
+          'Detailed trend analysis charts',
+          'Unlimited doctor consult bookings',
+          'Priority support queue access'
+        ],
+        isBestseller: true
+      },
+      {
+        planId: 'elite',
+        planName: 'Elite Plan',
+        price: 1999,
+        features: [
+          'Personal nutritionist and wellness coach',
+          '24/7 priority emergency doctor helpline',
+          'Monthly customized supplement box delivery',
+          'Complete health panel reviews'
+        ]
+      }
+    ];
+  }
+
+  async getRewardTasks(): Promise<IRewardTask[]> {
+    return [
+      { taskId: 'steps', title: 'Steps Goal', points: 50, target: 10000, unit: 'steps' },
+      { taskId: 'sleep', title: 'Sleep Goal', points: 30, target: 420, unit: 'minutes' },
+      { taskId: 'water', title: 'Water Goal', points: 20, target: 2500, unit: 'ml' }
+    ];
+  }
+
+  async getSupportInfo(): Promise<ISupportInfo> {
+    return {
+      email: 'support@healthxworld.com',
+      whatsapp: '919876543210',
+      faqs: [
+        {
+          question: 'How do I book a doctor consultation?',
+          answer: 'Go to the Consults tab, choose a doctor, select an available date and time slot, and tap Book Appointment.'
+        },
+        {
+          question: 'Can I sync my fitness tracker?',
+          answer: 'Yes, standard step counting uses native sensors and auto-syncs. Wearable device integrations can be enabled in settings.'
+        },
+        {
+          question: 'How do I track my nutrition?',
+          answer: 'Navigate to the Tracker tab, select meals, and use the Log Meal button to log your food items.'
+        },
+        {
+          question: 'What is the refund policy for shop orders?',
+          answer: 'Orders can be cancelled prior to dispatch. Refunds are processed to your original payment method within 5-7 business days.'
+        }
+      ]
+    };
   }
 }
 
